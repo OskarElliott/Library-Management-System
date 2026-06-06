@@ -1,0 +1,19 @@
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# database — generated locally, never commit
+*.db
+*.sqlite3
+
+# secrets — gmail app password / smtp creds go here, NOT in git
+.env
+config_secret.py
+
+# ide / os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

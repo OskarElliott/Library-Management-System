@@ -10,7 +10,7 @@ def get_connection(db_path=DB_PATH):
     conn.row_factory = sqlite3.Row
     return conn
 
-def init_db(dc_path=DB_PATH):
+def init_db(db_path=DB_PATH):
     schema = SCHEMA_PATH.read_text()
     conn = get_connection(db_path)
     conn.executescript(schema)

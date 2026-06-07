@@ -4,16 +4,20 @@ __pycache__/
 .venv/
 venv/
 
-# database — generated locally, never commit
+# database — generated locally
 *.db
 *.sqlite3
 
-# secrets — gmail app password / smtp creds go here, NOT in git
+# secrets — gmail app password/smtp creds go here
 .env
 config_secret.py
 
-# ide / os
+# ide/os
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+
+# personal
+PROJECT_CONTEXT.md
+todo.txt

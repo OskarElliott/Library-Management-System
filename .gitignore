@@ -1,24 +1,26 @@
-# python
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
 .venv/
 venv/
+env/
 
-# database — generated locally
 *.db
+*.sqlite
 *.sqlite3
 
-# secrets — gmail app password/smtp creds go here
-.env
+config.py
 config_secret.py
+.env
+*credentials*.txt
+*secret*
 
-# ide/os
+scratch.py
+scratch/
+
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
-
-# personal
-PROJECT_CONTEXT.md
-todo.txt
-login_credentials.txt

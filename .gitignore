@@ -1,0 +1,20 @@
+# python
+__pycache__/
+*.py[cod]
+
+# virtual env
+.venv/
+
+# local database 
+library.db
+library.db-journal
+library.db-wal
+library.db-shm
+
+# secrets 
+.env
+
+# editor / os cruft
+.vscode/
+.DS_Store
+Thumbs.db

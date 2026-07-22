@@ -18,3 +18,7 @@ library.db-shm
 .vscode/
 .DS_Store
 Thumbs.db
+
+CONVENTIONS.md
+PROJECT_CONTEXT.md
+

@@ -13,3 +13,4 @@ School library management system built as an IB Computer Science SL Internal Ass
 ## Scope
 
 Role-based login (student,teacher, librarian), book and copy management, borrow and return, and overdue detection computed from due dates. Additions, added only if time allows: fines, Google Books lookup, demand analytics, email notifications, and reservations.
+

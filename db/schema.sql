@@ -14,18 +14,18 @@ CREATE TABLE Users (
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
     username TEXT UNIQUE, -- staff only
-    password_hash TEXT -- staff only
+    password_hash TEXT, -- staff only
     CHECK ((username IS NULL AND password_hash IS NULL) OR (username IS NOT NULL AND password_hash IS NOT NULL))
 );
 
 CREATE TABLE Homerooms (
     homeroom TEXT PRIMARY KEY,
-    tutor_email TEXT NOT NULL
+    tutor_email TEXT NOT NULL,
+    year_number INTEGER NOT NULL CHECK(year_number BETWEEN 7 AND 13) -- ib1 and ib2 marked as years 12 and 13
 );
 
 CREATE TABLE StudentProfiles (
     user_id INTEGER PRIMARY KEY REFERENCES Users(user_id),
-    year_number INTEGER NOT NULL CHECK(year_number BETWEEN 7 AND 13), -- ib1 and ib2 marked as years 12 and 13.
     homeroom TEXT NOT NULL REFERENCES Homerooms(homeroom)
 );
 
@@ -74,7 +74,7 @@ CREATE TABLE Loans (
     due_date TEXT NOT NULL,
     return_date TEXT,
     status TEXT NOT NULL DEFAULT 'active'
-        CHECK (status IN ('active','returned','lost'))
+        CHECK (status IN ('active','returned','lost')),
     CHECK ((status = 'active' AND return_date IS NULL) OR (status = 'returned' AND return_date IS NOT NULL) OR (status = 'lost'))
 );
 
@@ -95,7 +95,7 @@ CREATE TABLE Fines (
     issued_date TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     paid_date TEXT,
     status TEXT NOT NULL DEFAULT 'unpaid'
-        CHECK (status IN ('unpaid','paid'))
+        CHECK (status IN ('unpaid','paid')),
     CHECK ((status = 'unpaid' AND paid_date IS NULL) OR (status = 'paid' AND paid_date IS NOT NULL))
 );
 

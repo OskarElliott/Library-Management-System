@@ -293,19 +293,18 @@ TITLES = [ # placeholder book titles, generated via https://perchance.org/book
     "The Hitchhiker's Guide to the Galaxy",
 ]
 
-ROW_COUNT_QUERIES = [ # table names cannot be parameterised, so each query is written out in full
-    ("Roles", "SELECT COUNT(*) FROM Roles"),
-    ("FineRules", "SELECT COUNT(*) FROM FineRules"),
-    ("Homerooms", "SELECT COUNT(*) FROM Homerooms"),
-    ("Users", "SELECT COUNT(*) FROM Users"),
-    ("StudentProfiles", "SELECT COUNT(*) FROM StudentProfiles"),
-    ("Genres", "SELECT COUNT(*) FROM Genres"),
-    ("Authors", "SELECT COUNT(*) FROM Authors"),
-    ("Books", "SELECT COUNT(*) FROM Books"),
-    ("BookAuthors", "SELECT COUNT(*) FROM BookAuthors"),
-    ("BookCopies", "SELECT COUNT(*) FROM BookCopies"),
+TABLE_NAMES = [ #? only works for values, so table names are hardcoded here, never user input
+    "Roles",
+    "FineRules",
+    "Homerooms",
+    "Users",
+    "StudentProfiles",
+    "Genres",
+    "Authors",
+    "Books",
+    "BookAuthors",
+    "BookCopies",
 ]
-
 
 def main():
     DB_PATH.unlink(missing_ok=True)
@@ -333,10 +332,10 @@ def seed_roles(con):
 
     cur.executemany("INSERT INTO Roles (role_id, role_name) VALUES (?, ?)", roles)
 
-    return {
-        role_name: role_id
-        for role_id, role_name in roles
-    }
+    role_ids = {}
+    for role_id, role_name in roles:
+        role_ids[role_name] = role_id
+    return role_ids
 
 def seed_fine_rules(con, role_ids):
     cur = con.cursor()
@@ -363,39 +362,48 @@ def seed_homerooms(con):
 
 def seed_users(con, role_ids):
     cur = con.cursor()
-
+ 
+    user_rows = []
     student_ids = []
     teacher_ids = []
     librarian_ids = []
-
+ 
     selected_names = random.sample(NAMES, 55)
-
+ 
     students = selected_names[:45]
     teachers = selected_names[45:52]
     librarians = selected_names[52:]
-
-    for first_name, last_name in students:
-        email = f"{first_name.lower()}.{last_name.lower()}@bisc.krakow.pl"
-
-        cur.execute ("""INSERT INTO Users (role_id, email, first_name, last_name, username, password_hash) VALUES (?,?,?,?,?,?)""", (role_ids["student"], email, first_name, last_name, None, None))
-        student_ids.append(cur.lastrowid)
-        
-    for first_name, last_name in teachers:
-        email = f"{first_name.lower()}.{last_name.lower()}@bisc.krakow.pl"
-    
-        cur.execute ("""INSERT INTO Users (role_id, email, first_name, last_name, username, password_hash) VALUES (?,?,?,?,?,?)""", (role_ids["teacher"], email, first_name, last_name, None, None))
-        teacher_ids.append(cur.lastrowid)
-
+ 
     password_hash = bcrypt.hashpw(b"testpassword", bcrypt.gensalt()).decode() # shared password for all librarian accounts
-
-    for first_name, last_name in librarians:
+ 
+    user_id = 0
+ 
+    for first_name, last_name in students:
+        user_id = user_id + 1
         email = f"{first_name.lower()}.{last_name.lower()}@bisc.krakow.pl"
-        username = f"{first_name.lower()}"
-
-        cur.execute ("""INSERT INTO Users (role_id, email, first_name, last_name, username, password_hash) VALUES (?,?,?,?,?,?)""", (role_ids["librarian"], email, first_name, last_name, username, password_hash))
-        librarian_ids.append(cur.lastrowid)
-
+ 
+        user_rows.append((user_id, role_ids["student"], email, first_name, last_name, None, None))
+        student_ids.append(user_id)
+ 
+    for first_name, last_name in teachers:
+        user_id = user_id + 1
+        email = f"{first_name.lower()}.{last_name.lower()}@bisc.krakow.pl"
+ 
+        user_rows.append((user_id, role_ids["teacher"], email, first_name, last_name, None, None))
+        teacher_ids.append(user_id)
+ 
+    for first_name, last_name in librarians:
+        user_id = user_id + 1
+        email = f"{first_name.lower()}.{last_name.lower()}@bisc.krakow.pl"
+        username = first_name.lower()
+ 
+        user_rows.append((user_id, role_ids["librarian"], email, first_name, last_name, username, password_hash))
+        librarian_ids.append(user_id)
+ 
+    cur.executemany("""INSERT INTO Users (user_id, role_id, email, first_name, last_name, username, password_hash) VALUES (?,?,?,?,?,?,?)""", user_rows)
+ 
     return {"student": student_ids, "teacher": teacher_ids, "librarian": librarian_ids}
+
 
 def seed_student_profiles(con, student_ids, homeroom_names):
     cur = con.cursor()
@@ -460,7 +468,7 @@ def seed_books(con, genre_ids):
     for i in range(len(TITLES)):
         book_id = i + 1
         title = TITLES[i]
-        isbn = f"978{book_id:010d}" # unique isbn values
+        isbn = "978" + str(book_id).zfill(10) # unique isbn values, fills string with 0's
         publication_year = random.randint(1950, 2024)
         publisher = random.choice(PUBLISHERS)
         genre_id = random.choice(genre_ids)
@@ -499,10 +507,10 @@ def print_row_counts(con):
  
     print("Seeding summary:")
  
-    for table_name, count_query in ROW_COUNT_QUERIES:
-        cur.execute(count_query)
+    for table_name in TABLE_NAMES:
+        cur.execute(f"SELECT COUNT(*) FROM {table_name}")
         row_count = cur.fetchone()[0]
-        print(f"  {table_name}: {row_count}")
+        print(f"- {table_name}: {row_count}")
 
     
 if __name__ == "__main__":

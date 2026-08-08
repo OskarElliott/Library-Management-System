@@ -472,12 +472,11 @@ def seed_books(con, genre_ids):
         publication_year = random.randint(1950, 2024)
         publisher = random.choice(PUBLISHERS)
         genre_id = random.choice(genre_ids)
-        replacement_cost = round(random.uniform(20, 120), 2)
  
-        book_rows.append((book_id, isbn, title, publication_year, publisher, genre_id, replacement_cost))
+        book_rows.append((book_id, isbn, title, publication_year, publisher, genre_id))
         book_ids.append(book_id)
  
-    cur.executemany("""INSERT INTO Books (book_id, isbn, title, publication_year, publisher, genre_id, replacement_cost) VALUES (?,?,?,?,?,?,?)""", book_rows)
+    cur.executemany("""INSERT INTO Books (book_id, isbn, title, publication_year, publisher, genre_id) VALUES (?,?,?,?,?,?)""", book_rows)
     return book_ids
 
 def seed_book_authors(con, book_ids, author_ids):

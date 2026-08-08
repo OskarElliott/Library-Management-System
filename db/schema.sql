@@ -2,7 +2,7 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE Roles (
     role_id INTEGER PRIMARY KEY,
-    role_name TEXT NOT NULL
+    role_name TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE Users (
@@ -47,7 +47,8 @@ CREATE TABLE Books (
     publication_year INTEGER,
     publisher TEXT,
     genre_id INTEGER NOT NULL REFERENCES Genres(genre_id),
-    replacement_cost REAL
+    is_active INTEGER NOT NULL DEFAULT 1
+        CHECK(is_active IN(0,1))
 );
 
 CREATE TABLE BookCopies (

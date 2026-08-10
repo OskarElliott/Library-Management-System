@@ -1,5 +1,4 @@
 from db.connection import get_connection
-from models.book import Book
 from datetime import date
 
 ACTION_ADD_BOOK = "add_book"
@@ -27,30 +26,20 @@ def get_book(book_id):
     con = get_connection()
     cur = con.cursor()
 
-    cur.execute("""SELECT Books.book_id, Books.isbn, Books.title, Books.publication_year, Books.publisher, Books.genre_id
-                FROM Books WHERE Books.book_id = ? AND Books.is_active = 1""", (book_id,))
+    cur.execute("""SELECT Books.book_id, Books.isbn, Books.title, Books.publication_year, Books.publisher, Books.genre_id,
+                Genres.name AS genre_name, Authors.first_name, Authors.last_name,
+                (SELECT COUNT(*) FROM BookCopies WHERE BookCopies.book_id = Books.book_id AND BookCopies.status != 'discarded') AS copy_count
+                FROM Books LEFT JOIN Genres ON Books.genre_id = Genres.genre_id
+                LEFT JOIN BookAuthors ON Books.book_id = BookAuthors.book_id
+                LEFT JOIN Authors ON BookAuthors.author_id = Authors.author_id
+                WHERE Books.book_id = ? AND Books.is_active = 1""", (book_id,))
 
     row = cur.fetchone()
     con.close()
 
     if row is None:
         return None
-
-    return Book.from_row(row)
-
-def get_book_author(book_id):
-    con = get_connection()
-    cur = con.cursor()
-
-    cur.execute("""SELECT Authors.first_name, Authors.last_name FROM BookAuthors
-                JOIN Authors ON BookAuthors.author_id = Authors.author_id WHERE BookAuthors.book_id = ?""", (book_id,))
-
-    row = cur.fetchone()
-    con.close()
-
-    if row is None:
-        return None
-
+    
     return row
 
 def get_copies(book_id):
@@ -101,7 +90,7 @@ def _check_and_clean_book_fields(isbn, title, genre_id, publication_year, publis
         except ValueError:
             raise ValueError("Publication year must be a number")
 
-        if publication_year < 0 or publication_year > 2100:
+        if publication_year < 1000 or publication_year > 2100:
             raise ValueError("Publication year is out of range")
         
     return(isbn, title, genre_id, publication_year, publisher, author_first_name, author_last_name)
@@ -243,3 +232,4 @@ def discard_copy(copy_id, librarian_id):
 
     finally: 
         con.close()
+

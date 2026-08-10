@@ -1,15 +1,17 @@
-from PySide6.QtWidgets import QLabel, QMainWindow, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QHBoxLayout, QLineEdit, QPushButton, QTabWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QMainWindow, QPushButton, QTabWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 from services import books
+from ui.book_dialog import BookDialog
+from ui.formatting import to_text
 
 class MainWindow(QMainWindow):
     def __init__(self, librarian):
         super().__init__() # allow access to methods & properties of QMainWindow
 
         self._librarian = librarian
-        self.setup_ui()
-        self.load_books()
+        self._setup_ui()
+        self._load_books()
 
-    def setup_ui(self):     
+    def _setup_ui(self):     
         self.setWindowTitle("Library Management System")
         self.resize(1280, 720)
 
@@ -33,6 +35,8 @@ class MainWindow(QMainWindow):
         self._search_button = QPushButton("Search")
         self._add_book_button = QPushButton("Add Book")
         self._edit_book_button = QPushButton("Edit Book")
+        self._add_book_button.clicked.connect(self._add_book)
+        self._edit_book_button.clicked.connect(self._edit_book)
         controls.addWidget(QLabel("Search"))
         controls.addWidget(self._search_bar)
         controls.addWidget(self._search_button)
@@ -58,10 +62,9 @@ class MainWindow(QMainWindow):
         # one tab for each feature area
         tabs = QTabWidget()
         tabs.addTab(books_tab, "Books")
-        tabs.addTab(QWidget(), "Loans")
-        tabs.addTab(QWidget(), "Overdue")
-        tabs.addTab(QWidget(), "Fines")
-        tabs.addTab(QWidget(), "Audit Log")
+        for tab_name in ["Loans", "Overdue", "Fines", "Audit Log"]:
+            tabs.addTab(QLabel("Coming soon"), tab_name)
+
         layout.addWidget(tabs)
 
         # shows errors from the buttons above
@@ -70,27 +73,45 @@ class MainWindow(QMainWindow):
 
         central_widget.setLayout(layout)
         
-    def load_books(self):
+    def _load_books(self):
         # the whole table is refilled every time
         books_rows = books.get_all_books()
         self._book_table.setRowCount(len(books_rows))
 
         for row_index, book in enumerate(books_rows):
-            author = author = f'{book["first_name"]} {book["last_name"]}'
-
-            year = ""
-            if book["publication_year"] is not None:
-                year = str(book["publication_year"])
-
-            self._book_table.setItem(row_index, 0, QTableWidgetItem(str(book["book_id"])))
-            self._book_table.setItem(row_index, 1, QTableWidgetItem(book["title"]))
+            author = f'{to_text(book["first_name"])} {to_text(book["last_name"])}'.strip()
+ 
+            self._book_table.setItem(row_index, 0, QTableWidgetItem(to_text(book["book_id"])))
+            self._book_table.setItem(row_index, 1, QTableWidgetItem(to_text(book["title"])))
             self._book_table.setItem(row_index, 2, QTableWidgetItem(author))
-            self._book_table.setItem(row_index, 3, QTableWidgetItem(book["genre_name"] or ""))
-            self._book_table.setItem(row_index, 4, QTableWidgetItem(book["isbn"]))
-            self._book_table.setItem(row_index, 5, QTableWidgetItem(year))
-    
+            self._book_table.setItem(row_index, 3, QTableWidgetItem(to_text(book["genre_name"])))
+            self._book_table.setItem(row_index, 4, QTableWidgetItem(to_text(book["isbn"])))
+            self._book_table.setItem(row_index, 5, QTableWidgetItem(to_text(book["publication_year"])))
+ 
         self._book_table.resizeColumnsToContents()
-    
+
+
+    def _add_book(self):
+        dialog = BookDialog(self._librarian)
+
+        # exec() blocks until the dialog closes and returns true only if it was accepted
+        if dialog.exec():
+            self._load_books()
+
+    def _edit_book(self):
+        row_index = self._book_table.currentRow()
+
+        #currentRow() is -1 when nothing is selected
+        if row_index == -1:
+            self._status_label.setText("Select a book to edit.")
+            return
+
+        self._status_label.setText("")
+        book_id = int(self._book_table.item(row_index, 0).text())
+        dialog = BookDialog(self._librarian, books.get_book(book_id))
+
+        if dialog.exec():
+            self._load_books()   
 
 
 

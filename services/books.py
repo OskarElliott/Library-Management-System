@@ -27,9 +27,8 @@ def get_book(book_id):
     cur = con.cursor()
 
     cur.execute("""SELECT Books.book_id, Books.isbn, Books.title, Books.publication_year, Books.publisher, Books.genre_id,
-                Genres.name AS genre_name, Authors.first_name, Authors.last_name,
-                (SELECT COUNT(*) FROM BookCopies WHERE BookCopies.book_id = Books.book_id AND BookCopies.status != 'discarded') AS copy_count
-                FROM Books LEFT JOIN Genres ON Books.genre_id = Genres.genre_id
+                Genres.name AS genre_name, Authors.first_name, Authors.last_name
+            FROM Books LEFT JOIN Genres ON Books.genre_id = Genres.genre_id
                 LEFT JOIN BookAuthors ON Books.book_id = BookAuthors.book_id
                 LEFT JOIN Authors ON BookAuthors.author_id = Authors.author_id
                 WHERE Books.book_id = ? AND Books.is_active = 1""", (book_id,))

@@ -111,7 +111,4 @@ class MainWindow(QMainWindow):
         dialog = BookDialog(self._librarian, books.get_book(book_id))
 
         if dialog.exec():
-            self._load_books()   
-
-
-
+            self._load_books()

@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QComboBox, QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSpinBox, QVBoxLayout, QMessageBox
+from PySide6.QtWidgets import QComboBox, QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSpinBox, QVBoxLayout, QMessageBox, QTableWidget, QTableWidgetItem
 from services import books
 from ui.formatting import to_text
 
@@ -13,6 +13,7 @@ class BookDialog(QDialog):
 
         if self._book is not None:
             self._load_book()
+            self._load_copies()
 
     def _setup_ui(self):
         if self._book is None:
@@ -47,7 +48,28 @@ class BookDialog(QDialog):
             self._copies_box.setMaximum(20)
             form.addRow("Number of copies", self._copies_box)
         else:
-            form.addRow("Copies", QLabel(to_text(self._book["copy_count"])))
+            copies_layout = QVBoxLayout()
+
+            self._copies_table = QTableWidget()
+            self._copies_table.setColumnCount(4)
+            self._copies_table.setHorizontalHeaderLabels(["Copy ID", "Purchase Date", "Condition", "Status"])
+            self._copies_table.setEditTriggers(QTableWidget.NoEditTriggers)
+            self._copies_table.setSelectionBehavior(QTableWidget.SelectRows)
+
+            copies_layout.addWidget(self._copies_table)
+
+            self._add_copy_button = QPushButton("Add Copy")
+            self._discard_copy_button = QPushButton("Discard Copy")
+
+            copy_buttons = QHBoxLayout()
+            copy_buttons.addWidget(self._add_copy_button)
+            copy_buttons.addWidget(self._discard_copy_button)
+            copies_layout.addLayout(copy_buttons)
+
+            layout.addLayout(copies_layout)
+
+            self._add_copy_button.clicked.connect(self._add_copy)
+            self._discard_copy_button.clicked.connect(self._discard_copy)
 
         layout.addLayout(form)
 
@@ -137,3 +159,48 @@ class BookDialog(QDialog):
         # a book with no genre lands on the placeholder which carries none
 
         self._genre_box.setCurrentIndex(self._genre_box.findData(self._book["genre_id"]))
+
+    def _load_copies(self):
+        copy_rows = books.get_copies(self._book["book_id"])
+
+        self._copies_table.setRowCount(len(copy_rows))
+
+        for row_index, copy in enumerate(copy_rows):
+            self._copies_table.setItem(row_index, 0, QTableWidgetItem(str(copy["copy_id"])))
+            self._copies_table.setItem(row_index, 1, QTableWidgetItem(to_text(copy["purchase_date"])))
+            self._copies_table.setItem(row_index, 2, QTableWidgetItem(to_text(copy["condition"])))
+            self._copies_table.setItem(row_index, 3, QTableWidgetItem(to_text(copy["status"])))
+
+        self._copies_table.resizeColumnsToContents()
+
+    def _add_copy(self):
+        self._status_label.setText("")
+
+        try:
+            books.add_copy(self._book["book_id"], self._librarian.get_user_id())
+
+        except ValueError as error:
+            self._status_label.setText(str(error))
+            return
+
+        self._load_copies()
+
+    def _discard_copy(self):
+        self._status_label.setText("")
+
+        row_index = self._copies_table.currentRow()
+
+        if row_index == -1:
+            self._status_label.setText("Select a copy to discard.")
+            return
+
+        copy_id = int(self._copies_table.item(row_index, 0).text())
+
+        try:
+            books.discard_copy(copy_id, self._librarian.get_user_id())
+
+        except ValueError as error:
+            self._status_label.setText(str(error))
+            return
+
+        self._load_copies()

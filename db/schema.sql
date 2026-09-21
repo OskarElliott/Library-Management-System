@@ -79,6 +79,9 @@ CREATE TABLE Loans (
     CHECK ((status = 'active' AND return_date IS NULL) OR (status = 'returned' AND return_date IS NOT NULL) OR (status = 'lost'))
 );
 
+-- a copy can only be on one active loan at a time
+CREATE UNIQUE INDEX index_one_active_loan_per_copy ON Loans(copy_id) WHERE status = 'active'; 
+
 CREATE TABLE Reservations (
     reservation_id INTEGER PRIMARY KEY,
     book_id INTEGER NOT NULL REFERENCES Books(book_id),

@@ -47,7 +47,10 @@ class BookDialog(QDialog):
             self._copies_box.setMinimum(1)
             self._copies_box.setMaximum(20)
             form.addRow("Number of copies", self._copies_box)
-        else:
+
+        layout.addLayout(form)
+
+        if self._book is not None:
             copies_layout = QVBoxLayout()
 
             self._copies_table = QTableWidget()
@@ -55,6 +58,7 @@ class BookDialog(QDialog):
             self._copies_table.setHorizontalHeaderLabels(["Copy ID", "Purchase Date", "Condition", "Status"])
             self._copies_table.setEditTriggers(QTableWidget.NoEditTriggers)
             self._copies_table.setSelectionBehavior(QTableWidget.SelectRows)
+            self._copies_table.setSelectionMode(QTableWidget.SingleSelection)
 
             copies_layout.addWidget(self._copies_table)
 
@@ -70,8 +74,6 @@ class BookDialog(QDialog):
 
             self._add_copy_button.clicked.connect(self._add_copy)
             self._discard_copy_button.clicked.connect(self._discard_copy)
-
-        layout.addLayout(form)
 
         # the genre list comes from the db, so the same genre cannot be spelt in different ways
         # each item shows the name and carries the genre_id with it

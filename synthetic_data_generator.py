@@ -2,6 +2,9 @@
 import random
 import bcrypt
 from db.connection import init_db, get_connection, DB_PATH
+from datetime import date, timedelta
+from models.student import Student
+from models.teacher import Teacher
 
 random.seed(42) # makes randomly generated seed data reproducible 
 
@@ -304,6 +307,7 @@ TABLE_NAMES = [ #? only works for values, so table names are hardcoded here, nev
     "Books",
     "BookAuthors",
     "BookCopies",
+    "Loans"
 ]
 
 def main():
@@ -321,7 +325,11 @@ def main():
         author_ids = seed_authors(con)
         book_ids = seed_books(con, genre_ids)
         seed_book_authors(con, book_ids, author_ids)
-        seed_book_copies(con, book_ids)
+        copies_by_book = seed_book_copies(con, book_ids)
+
+        today = date.today()
+        seed_loans(con, user_ids, copies_by_book, today)
+        seed_active_loans(con, user_ids, copies_by_book, today)
 
     print_row_counts(con)
     con.close()
@@ -368,13 +376,13 @@ def seed_users(con, role_ids):
     teacher_ids = []
     librarian_ids = []
  
-    selected_names = random.sample(NAMES, 55)
+    selected_names = random.sample(NAMES, 58)
  
     students = selected_names[:45]
     teachers = selected_names[45:52]
-    librarians = selected_names[52:]
+    librarians = selected_names[52:55]
  
-    password_hash = bcrypt.hashpw(b"testpassword", bcrypt.gensalt()).decode() # shared password for all librarian accounts
+    password_hash = bcrypt.hashpw(b"testpassword", bcrypt.gensalt()).decode() # shared password for all credentialised test accounts
  
     user_id = 0
  
@@ -382,35 +390,54 @@ def seed_users(con, role_ids):
         user_id = user_id + 1
         email = f"{first_name.lower()}.{last_name.lower()}@bisc.krakow.pl"
  
-        user_rows.append((user_id, role_ids["student"], email, first_name, last_name, None, None))
+        user_rows.append((user_id, role_ids["student"], email, 1, first_name, last_name, None, None))
         student_ids.append(user_id)
  
-    for first_name, last_name in teachers:
+    for first_name, last_name in teachers: # 7 regular teachers
         user_id = user_id + 1
         email = f"{first_name.lower()}.{last_name.lower()}@bisc.krakow.pl"
  
-        user_rows.append((user_id, role_ids["teacher"], email, first_name, last_name, None, None))
+        user_rows.append((user_id, role_ids["teacher"], email, 1, first_name, last_name, None, None))
         teacher_ids.append(user_id)
- 
-    for first_name, last_name in librarians:
+
+    librarian_number = 0
+
+    for first_name, last_name in librarians: # 3 regular librarians
+        librarian_number = librarian_number + 1
         user_id = user_id + 1
         email = f"{first_name.lower()}.{last_name.lower()}@bisc.krakow.pl"
-        username = first_name.lower()
- 
-        user_rows.append((user_id, role_ids["librarian"], email, first_name, last_name, username, password_hash))
-        librarian_ids.append(user_id)
- 
-    cur.executemany("""INSERT INTO Users (user_id, role_id, email, first_name, last_name, username, password_hash) VALUES (?,?,?,?,?,?,?)""", user_rows)
- 
-    return {"student": student_ids, "teacher": teacher_ids, "librarian": librarian_ids}
+        username = f"librarian{librarian_number}"
 
+        user_rows.append((user_id, role_ids["librarian"], email, 1, first_name, last_name, username, password_hash))
+        librarian_ids.append(user_id)
+
+    first_name, last_name = selected_names[55] # inactive librarian must not be able to log in
+    user_id = user_id + 1
+    email = f"{first_name.lower()}.{last_name.lower()}@bisc.krakow.pl"
+    user_rows.append((user_id, role_ids["librarian"], email, 0, first_name, last_name, "inactive_librarian", password_hash))
+
+    first_name, last_name = selected_names[56] # teacher has credentials but must not be able to log in
+    user_id = user_id + 1
+    email = f"{first_name.lower()}.{last_name.lower()}@bisc.krakow.pl"
+    user_rows.append((user_id, role_ids["teacher"], email, 1, first_name, last_name, "test_teacher", password_hash))
+
+    first_name, last_name = selected_names[57] # inactive student
+    user_id = user_id + 1
+    email = f"{first_name.lower()}.{last_name.lower()}@bisc.krakow.pl"
+    user_rows.append((user_id, role_ids["student"], email, 0, first_name, last_name, None, None))
+    student_ids.append(user_id)
+    inactive_student_id = user_id
+ 
+    cur.executemany("""INSERT INTO Users (user_id, role_id, email, is_active, first_name, last_name, username, password_hash) VALUES (?,?,?,?,?,?,?,?)""", user_rows)
+ 
+    return {"student": student_ids, "teacher": teacher_ids, "librarian": librarian_ids, "inactive_student": inactive_student_id}
 
 def seed_student_profiles(con, student_ids, homeroom_names):
     cur = con.cursor()
 
     student_profiles = []
 
-    for i in range(len(student_ids)): # distribute 45 test students evenly across 7 homerooms
+    for i in range(len(student_ids)): # spread evenly across homerooms
         user_id = student_ids[i]
         homeroom = homeroom_names[i % len(homeroom_names)]
         student_profiles.append((user_id, homeroom))
@@ -493,13 +520,123 @@ def seed_book_authors(con, book_ids, author_ids):
 def seed_book_copies(con, book_ids):
     cur = con.cursor()
  
-    copy_rows = []
+    copies_by_book = {}
  
     for book_id in book_ids: # three physical copies of every book
+        copies_by_book[book_id] = []
+
         for copy_number in range(1, 4):
-            copy_rows.append((book_id,))
+            cur.execute("INSERT INTO BookCopies (book_id) VALUES (?)", (book_id,))
+            copy_id = cur.lastrowid
+            copies_by_book[book_id].append(copy_id)
+
+    return copies_by_book
+
+def seed_loans(con, user_ids, copies_by_book, today):
+    cur = con.cursor()
+
+    borrowers = []
+
+    for user_id in user_ids["student"][:-5]: # last 5 students
+        borrowers.append((user_id, Student.MAX_LOAN_DAYS))
  
-    cur.executemany("INSERT INTO BookCopies (book_id) VALUES (?)", copy_rows)
+    for user_id in user_ids["teacher"][:-1]:
+        borrowers.append((user_id, Teacher.MAX_LOAN_DAYS))
+
+    loan_rows = []
+    year_start = today - timedelta(days=365)
+    stop_date = today - timedelta(days=60) 
+
+    for book_id in copies_by_book:
+        if book_id <= 40: #first 40 titles are the popular ones
+            loans_per_copy = 3
+        else:
+            loans_per_copy = 1
+
+        for copy_id in copies_by_book[book_id]:
+            next_free = year_start
+
+            for loan_number in range(loans_per_copy):
+                checkout = next_free + timedelta(days=random.randint(1, 10)) 
+                user_id, max_loan_days = random.choice(borrowers)
+                due = checkout + timedelta(days=max_loan_days)
+                returned = due + timedelta(days=random.randint(-10, 5))
+
+                if returned < checkout:
+                    returned = checkout
+
+                if returned > stop_date:
+                    break
+
+                loan_rows.append((copy_id, user_id, checkout.isoformat(), due.isoformat(), returned.isoformat(), "returned"))
+                next_free = returned + timedelta(days=1) # this stops two loans overlapping on one copy
+
+    cur.executemany("""INSERT INTO Loans (copy_id, user_id, checkout_date, due_date, return_date, status) VALUES (?,?,?,?,?,?)""", loan_rows)
+
+def seed_active_loans(con, user_ids, copies_by_book, today):
+    cur = con.cursor()
+
+    borrowers = []
+
+    for user_id in user_ids["student"][:-5]:
+        borrowers.append((user_id, Student.MAX_LOAN_DAYS))
+
+    for user_id in user_ids["teacher"][:-1]:
+        borrowers.append((user_id, Teacher.MAX_LOAN_DAYS))
+
+    available_copies = []
+
+    for copy_ids in copies_by_book.values():
+        for copy_id in copy_ids:
+            available_copies.append(copy_id)
+
+    random.shuffle(available_copies)
+
+    loan_rows = []
+    loaned_copy_ids = []
+
+    for loan_number in range(44):
+        copy_id = available_copies.pop()
+        user_id, max_loan_days = random.choice(borrowers)
+
+        checkout = today - timedelta(days=random.randint(1, max_loan_days - 1))
+        due = checkout + timedelta(days=max_loan_days)
+
+        loan_rows.append((copy_id, user_id, checkout.isoformat(), due.isoformat(), None, "active"))
+        loaned_copy_ids.append((copy_id,))
+
+    copy_id = available_copies.pop()
+    user_id, max_loan_days = random.choice(borrowers)
+
+    checkout = today - timedelta(days=max_loan_days)
+    due = checkout + timedelta(days=max_loan_days)
+
+    loan_rows.append((copy_id, user_id, checkout.isoformat(), due.isoformat(), None, "active"))
+    loaned_copy_ids.append((copy_id,))
+
+    for loan_number in range(14):
+        copy_id = available_copies.pop()
+        user_id, max_loan_days = random.choice(borrowers)
+
+        checkout = today - timedelta(days=max_loan_days + random.randint(2, 30))
+        due = checkout + timedelta(days=max_loan_days)
+
+        loan_rows.append((copy_id, user_id, checkout.isoformat(), due.isoformat(), None, "active"))
+        loaned_copy_ids.append((copy_id,))
+
+    copy_id = available_copies.pop()
+    user_id, max_loan_days = random.choice(borrowers)
+
+    checkout = today - timedelta(days=max_loan_days + 1)
+    due = checkout + timedelta(days=max_loan_days)
+
+    loan_rows.append((copy_id, user_id, checkout.isoformat(), due.isoformat(), None, "active"))
+    loaned_copy_ids.append((copy_id,))
+
+    cur.executemany("""INSERT INTO Loans (copy_id, user_id, checkout_date, due_date, return_date, status) VALUES (?,?,?,?,?,?)""", loan_rows)
+    cur.executemany("""UPDATE BookCopies SET status = 'loaned' WHERE copy_id = ?""", loaned_copy_ids)
+
+
 
 def print_row_counts(con):
     cur = con.cursor()

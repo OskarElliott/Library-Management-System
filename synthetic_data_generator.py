@@ -296,7 +296,7 @@ TITLES = [ # placeholder book titles, generated via https://perchance.org/book
     "The Hitchhiker's Guide to the Galaxy",
 ]
 
-TABLE_NAMES = [ #? only works for values, so table names are hardcoded here, never user input
+TABLE_NAMES = [ #? only works for values so table names are hardcoded 
     "Roles",
     "FineRules",
     "Homerooms",
@@ -307,7 +307,9 @@ TABLE_NAMES = [ #? only works for values, so table names are hardcoded here, nev
     "Books",
     "BookAuthors",
     "BookCopies",
-    "Loans"
+    "Loans",
+    "Fines",
+    "ClosedDays"
 ]
 
 def main():
@@ -330,6 +332,8 @@ def main():
         today = date.today()
         seed_loans(con, user_ids, copies_by_book, today)
         seed_active_loans(con, user_ids, copies_by_book, today)
+        seed_fixtures(con, user_ids, today)
+        seed_closed_days(con, today)
 
     print_row_counts(con)
     con.close()
@@ -636,8 +640,75 @@ def seed_active_loans(con, user_ids, copies_by_book, today):
     cur.executemany("""INSERT INTO Loans (copy_id, user_id, checkout_date, due_date, return_date, status) VALUES (?,?,?,?,?,?)""", loan_rows)
     cur.executemany("""UPDATE BookCopies SET status = 'loaned' WHERE copy_id = ?""", loaned_copy_ids)
 
+def seed_fixtures(con, user_ids, today):
+    cur = con.cursor()
 
+    fixture_students = user_ids["student"][-5:]
+    
+    clean_student = fixture_students[0] # no loans and no fines, so borrowing must be allowed
+    at_limit_student = fixture_students[1]
+    unpaid_fine_student = fixture_students[2]
+    paid_fine_student = fixture_students[3]
 
+    overdue_teacher = user_ids["teacher"][-1] # last teacher in the list, has an overdue loan
+
+    cur.execute("SELECT copy_id FROM BookCopies WHERE status = 'available' ORDER BY copy_id LIMIT ?", (Student.MAX_LOANS + 3,))
+
+    free_copies = []
+
+    for row in cur.fetchall():
+        free_copies.append(row["copy_id"])
+
+    for loan_number in range(Student.MAX_LOANS): #exactly at the limit so the next borrow is blocked
+        copy_id = free_copies.pop()
+        checkout = today - timedelta(days=2)
+        due = checkout + timedelta(days=Student.MAX_LOAN_DAYS)
+
+        cur.execute("""INSERT INTO Loans (copy_id, user_id, checkout_date, due_date, status) VALUES (?,?,?,?,'active')""", (copy_id, at_limit_student, checkout.isoformat(), due.isoformat()))
+        cur.execute("UPDATE BookCopies SET status = 'loaned' WHERE copy_id = ?", (copy_id,))
+
+    copy_id = free_copies.pop()
+    checkout = today - timedelta(days=Teacher.MAX_LOAN_DAYS + 5) # five days overdue
+    due = checkout + timedelta(days=Teacher.MAX_LOAN_DAYS)
+
+    cur.execute("""INSERT INTO Loans (copy_id, user_id, checkout_date, due_date, status) VALUES (?,?,?,?,'active')""", (copy_id, overdue_teacher, checkout.isoformat(), due.isoformat()))
+    cur.execute("UPDATE BookCopies SET status = 'loaned' WHERE copy_id = ?", (copy_id,))
+
+    copy_id = free_copies.pop()
+    checkout = today - timedelta(days=60)
+    due = checkout + timedelta(days=Student.MAX_LOAN_DAYS)
+    returned = due + timedelta(days=6) # came back late which is what the fine is for
+
+    cur.execute("""INSERT INTO Loans (copy_id, user_id, checkout_date, due_date, return_date, status) VALUES (?,?,?,?,?,'returned')""", (copy_id, unpaid_fine_student, checkout.isoformat(), due.isoformat(), returned.isoformat()))
+
+    loan_id = cur.lastrowid # a fine points at a loan therefore the loan has to exist first
+
+    cur.execute("""INSERT INTO Fines (loan_id, amount, issued_date, status) VALUES (?, 2.50, ?, 'unpaid')""", (loan_id, returned.isoformat()))
+
+    copy_id = free_copies.pop()
+    checkout = today - timedelta(days=60)
+    due = checkout + timedelta(days=Student.MAX_LOAN_DAYS)
+    returned = due + timedelta(days=6)
+
+    cur.execute("""INSERT INTO Loans (copy_id, user_id, checkout_date, due_date, return_date, status) VALUES (?,?,?,?,?,'returned')""", (copy_id, paid_fine_student, checkout.isoformat(), due.isoformat(), returned.isoformat()))
+
+    loan_id = cur.lastrowid
+    paid = returned + timedelta(days=3)
+
+    cur.execute("""INSERT INTO Fines (loan_id, amount, issued_date, paid_date, status) VALUES (?,?,?,?,'paid')""", (loan_id, 2.50, returned.isoformat(), paid.isoformat()))
+
+def seed_closed_days(con, today):
+    cur = con.cursor()
+
+    closed_days = [] # weekends are computed from date.weekday()
+
+    for days_ago in [200, 120, 45]:
+        closed_days.append(((today - timedelta(days=days_ago)).isoformat(),))
+    
+    closed_days.append(((today + timedelta(days=21)).isoformat(),))
+    
+    cur.executemany("INSERT INTO ClosedDays (day_date) VALUES (?)", closed_days)
+    
 def print_row_counts(con):
     cur = con.cursor()
  
@@ -647,7 +718,7 @@ def print_row_counts(con):
         cur.execute(f"SELECT COUNT(*) FROM {table_name}")
         row_count = cur.fetchone()[0]
         print(f"- {table_name}: {row_count}")
-
+    print(f"- Seeded as of: {date.today().isoformat()}")
     
 if __name__ == "__main__":
     main()

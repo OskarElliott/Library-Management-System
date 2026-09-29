@@ -98,7 +98,7 @@ class MainWindow(QMainWindow):
         tabs.addTab(overdue_tab, "Overdue")
 
         for tab_name in ["Fines", "Audit Log"]:
-            tabs.addTab(QLabel("Coming soon"), tab_name)
+            tabs.addTab(QLabel(None), tab_name)
 
         layout.addWidget(tabs)
 

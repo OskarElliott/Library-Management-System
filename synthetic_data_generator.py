@@ -541,7 +541,7 @@ def seed_loans(con, user_ids, copies_by_book, today):
 
     borrowers = []
 
-    for user_id in user_ids["student"][:-5]: # last 5 students
+    for user_id in user_ids["student"][:-5]: # eveeyrhing except for last 5 students
         borrowers.append((user_id, Student.MAX_LOAN_DAYS))
  
     for user_id in user_ids["teacher"][:-1]:

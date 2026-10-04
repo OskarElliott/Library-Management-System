@@ -190,13 +190,19 @@ class BookDialog(QDialog):
     def _discard_copy(self):
         self._status_label.setText("")
 
-        row_index = self._copies_table.currentRow()
-
-        if row_index == -1:
+        selected_rows = self._copies_table.selectionModel().selectedRows()
+        if not selected_rows:
             self._status_label.setText("Select a copy to discard.")
             return
 
-        copy_id = int(self._copies_table.item(row_index, 0).text())
+        copy_id = int(self._copies_table.item(selected_rows[0].row(), 0).text())
+
+        answer = QMessageBox.question(self, "Discard Copy", f"Discard copy {copy_id}?\nThis cannot be undone.",
+                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                      QMessageBox.StandardButton.No) 
+
+        if answer != QMessageBox.StandardButton.Yes:
+            return
 
         try:
             books.discard_copy(copy_id, self._librarian.get_user_id())

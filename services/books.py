@@ -173,24 +173,17 @@ def edit_book(book_id, isbn, title, genre_id, publication_year, publisher, autho
     finally:
         con.close()
 
-def withdraw_book(book_id, librarian_id):
+def get_available_copies(book_id):
     con = get_connection()
+    cur = con.cursor()
 
-    try:
-        with con:
-            cur = con.cursor()
+    cur.execute("""SELECT copy_id, condition FROM BookCopies WHERE book_id = ? AND status = 'available'
+                    ORDER BY copy_id""", (book_id,))
 
-            cur.execute("UPDATE Books SET is_active = 0 WHERE book_id = ?", (book_id,))
+    copies = cur.fetchall()
+    con.close()
 
-            if cur.rowcount == 0:
-                raise ValueError("Book not found")
-
-            cur.execute("UPDATE BookCopies SET status = 'discarded' WHERE book_id = ?", (book_id,))
-
-            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?,?,?,?)", (librarian_id, ACTION_WITHDRAW_BOOK, "Books", book_id))
-
-    finally:
-        con.close()
+    return copies
 
 def add_copy(book_id, librarian_id):
     purchase_date = date.today().isoformat() # default purchase date
@@ -215,6 +208,32 @@ def add_copy(book_id, librarian_id):
     finally:
         con.close()
 
+def withdraw_book(book_id, librarian_id):
+    con = get_connection()
+
+    try:
+        with con:
+            cur = con.cursor()
+
+            cur.execute("SELECT COUNT(*) FROM BookCopies WHERE book_id = ? AND status = 'loaned'", (book_id,))
+
+            loaned_count = cur.fetchone()[0]
+
+            if loaned_count > 0:
+                raise ValueError(f"{loaned_count} copies of this title are on loan.")
+
+            cur.execute("UPDATE Books SET is_active = 0 WHERE book_id = ?", (book_id,))
+
+            if cur.rowcount == 0:
+                raise ValueError("Book not found.")
+
+            cur.execute("UPDATE BookCopies SET status = 'discarded' WHERE book_id = ?", (book_id,))
+
+            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?,?,?,?)", (librarian_id, ACTION_WITHDRAW_BOOK, "Books", book_id))
+
+    finally:
+        con.close()
+
 def discard_copy(copy_id, librarian_id):
     con = get_connection()
 
@@ -222,13 +241,23 @@ def discard_copy(copy_id, librarian_id):
         with con:
             cur = con.cursor()
 
-            cur.execute("UPDATE BookCopies SET status = 'discarded' WHERE copy_id = ? AND status != 'discarded'", (copy_id,))
+            cur.execute("SELECT status FROM BookCopies WHERE copy_id = ?", (copy_id,))
 
-            if cur.rowcount == 0:
-                raise ValueError("Copy not found or already discarded")
+            row = cur.fetchone()
 
-            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES(?, ?, ?, ?)", (librarian_id, ACTION_DISCARD_COPY, "BookCopies", copy_id))
+            if row is None:
+                raise ValueError("Copy not found")
 
-    finally: 
+            if row["status"] == "loaned":
+                raise ValueError("Copy is on loan, it must be returned before discarding.")
+
+            if row["status"] == "discarded":
+                raise ValueError("Copy is already discarded.")
+
+            cur.execute("UPDATE BookCopies SET status = 'discarded' WHERE copy_id = ?", (copy_id,))
+
+            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?,?,?,?)", (librarian_id, ACTION_DISCARD_COPY, "BookCopies", copy_id))
+
+    finally:
         con.close()
-
+        

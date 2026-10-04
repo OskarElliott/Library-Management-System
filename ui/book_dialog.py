@@ -135,7 +135,7 @@ class BookDialog(QDialog):
 
     def _withdraw(self):
         answer = QMessageBox.question(self, "Withdraw Book", "Are you sure you want to withdraw this book?\nAll copies will be discarded.",
-                                              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                                              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No,)
 
         if answer != QMessageBox.StandardButton.Yes:
             return

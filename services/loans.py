@@ -87,7 +87,7 @@ def issue_loan(copy_id, user_id, librarian_id, today):
                         VALUES (?, 'issue_loan', 'Loans', ?)""", (librarian_id, loan_id))
 
     con.close()
-    return loan_id
+    return loan_id, due_date.isoformat()
 
 def return_loan(loan_id, librarian_id, today):
     con = get_connection()

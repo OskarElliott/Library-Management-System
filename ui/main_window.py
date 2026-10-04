@@ -15,8 +15,6 @@ class MainWindow(QMainWindow):
         self._load_loans()
         self._load_overdue()
 
-
-
     def _setup_ui(self):     
         self.setWindowTitle("Library Management System")
         self.resize(1280, 720)
@@ -173,15 +171,17 @@ class MainWindow(QMainWindow):
             self._load_books()
             
     def _edit_book(self):
-        row_index = self._book_table.currentRow()
+        selected_rows = self._book_table.selectionModel().selectedRows()
 
-        #currentRow() is -1 when nothing is selected
-        if row_index == -1:
+        if not selected_rows:
             self._status_label.setText("Select a book to edit.")
             return
 
         self._status_label.setText("")
+
+        row_index = selected_rows[0].row()
         book_id = int(self._book_table.item(row_index, 0).text())
+
         dialog = BookDialog(self._librarian, books.get_book(book_id))
 
         if dialog.exec():

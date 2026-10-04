@@ -220,7 +220,7 @@ def withdraw_book(book_id, librarian_id):
             loaned_count = cur.fetchone()[0]
 
             if loaned_count > 0:
-                raise ValueError(f"{loaned_count} copies of this title are on loan.")
+                raise ValueError(f"Copies on loan: {loaned_count}. Return them before withdrawing.")
 
             cur.execute("UPDATE Books SET is_active = 0 WHERE book_id = ?", (book_id,))
 

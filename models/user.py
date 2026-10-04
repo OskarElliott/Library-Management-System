@@ -33,3 +33,6 @@ class User:
 
     def get_last_name(self):
         return self._last_name
+
+    def get_is_active(self):
+        return self._is_active

@@ -2,6 +2,7 @@ from datetime import date
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QMainWindow, QPushButton, QTabWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 from services import books, loans
 from ui.book_dialog import BookDialog
+from ui.loan_dialog import IssueLoanDialog
 from ui.formatting import to_text
 
 class MainWindow(QMainWindow):
@@ -80,7 +81,16 @@ class MainWindow(QMainWindow):
 
         loans_tab = QWidget()
         loans_layout = QVBoxLayout()
+
+        loan_buttons = QHBoxLayout()
+        self._issue_loan_button = QPushButton("Issue Loan")
+        self._issue_loan_button.clicked.connect(self._issue_loan)
+        loan_buttons.addWidget(self._issue_loan_button)
+        loan_buttons.addStretch()
+
+        loans_layout.addLayout(loan_buttons)
         loans_layout.addWidget(self._loan_table)
+
         loans_tab.setLayout(loans_layout)
         tabs.addTab(loans_tab, "Loans")
 
@@ -189,3 +199,7 @@ class MainWindow(QMainWindow):
 
         if dialog.exec():
             self._load_books()
+
+    def _issue_loan(self):
+        dialog = IssueLoanDialog(self._librarian)
+        dialog.exec()

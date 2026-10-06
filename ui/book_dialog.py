@@ -87,6 +87,7 @@ class BookDialog(QDialog):
 
         # shows errors raised by the buttons
         self._status_label = QLabel("")
+        self._status_label.setStyleSheet("color: red")
         layout.addWidget(self._status_label)
 
         buttons = QHBoxLayout()

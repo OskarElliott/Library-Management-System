@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QComboBox, QFormLayout, QHBoxLayout, QLineEdit, QLabel, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout
-from services import books, users
+from services import books, users, loans
 from ui.formatting import REQUIRED_MARK, to_text
 
 class IssueLoanDialog(QDialog):
@@ -9,6 +9,8 @@ class IssueLoanDialog(QDialog):
 
         self._librarian = librarian
         self._all_books = books.get_all_books()
+
+        self._borrower_ok = False # set before setup so signals can read it
 
         self._setup_ui()
         self._load_borrowers()
@@ -36,6 +38,7 @@ class IssueLoanDialog(QDialog):
         layout.addLayout(form)
 
         self._error_label = QLabel("")
+        self._error_label.setStyleSheet("color: red")
         layout.addWidget(self._error_label)
 
         buttons = QHBoxLayout()
@@ -51,6 +54,9 @@ class IssueLoanDialog(QDialog):
 
         self._cancel_button.clicked.connect(self.reject)
         self._filter_field.textChanged.connect(self._filter_books)
+        self._borrower_box.currentIndexChanged.connect(self._check_borrower)
+        self._title_list.itemSelectionChanged.connect(self._load_copies)
+        self._copy_box.currentIndexChanged.connect(self._update_issue_button)
         self._issue_button.setEnabled(False)
 
         self.setLayout(layout)
@@ -75,9 +81,58 @@ class IssueLoanDialog(QDialog):
 
         for book in self._all_books:
             title = to_text(book["title"])
-            author = f"{to_text(book["first_name"])} {to_text(book["last_name"])}".strip()
+            author = f'{to_text(book["first_name"])} {to_text(book["last_name"])}'.strip()
 
             if term in title.lower() or term in author.lower():
                 item = QListWidgetItem(f"{title} by {author}")
                 item.setData(Qt.UserRole, book["book_id"])
                 self._title_list.addItem(item)
+
+        self._load_copies()
+
+    def _check_borrower(self):
+        user_id = self._borrower_box.currentData()
+
+        if user_id is None:
+            self._eligibility_label.setText("")
+            self._borrower_ok = False
+
+        else:
+            reasons = loans.check_eligibility(user_id)
+
+            if reasons:
+                self._eligibility_label.setText("\n".join(reasons))
+                self._eligibility_label.setStyleSheet("color: red")
+                self._borrower_ok = False
+
+            else:
+                self._eligibility_label.setText("Eligible to borrow")
+                self._eligibility_label.setStyleSheet("")
+                self._borrower_ok = True
+
+        self._update_issue_button()
+
+    def _load_copies(self):
+        self._copy_box.clear()
+        self._error_label.setText("")
+
+        selected_items = self._title_list.selectedItems()
+
+        if selected_items:
+            book_id = selected_items[0].data(Qt.UserRole)
+            copies = books.get_available_copies(book_id)
+
+            if not copies:
+                self._error_label.setText("No copies of this title are available.")
+
+            else:
+                self._copy_box.addItem("-- Select Copy --", None)
+
+                for copy in copies:
+                    self._copy_box.addItem(f'Copy {copy["copy_id"]} ({copy["condition"]})', copy["copy_id"])
+
+        self._update_issue_button()
+
+    def _update_issue_button(self):
+        copy_chosen = self._copy_box.currentData() is not None
+        self._issue_button.setEnabled(self._borrower_ok and copy_chosen)

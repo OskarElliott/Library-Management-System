@@ -45,9 +45,9 @@ def check_eligibility(user_id):
         reasons.append("Account is inactive.")
 
     if row["active_loans"] >= user.MAX_LOANS:
-        reasons.append(f"Borrower has reached the loan limit ({row['active_loans']} of {user.MAX_LOANS} loans)")
+        reasons.append(f"Borrower has reached the loan limit ({row['active_loans']} of {user.MAX_LOANS} loans).")
     if row["outstanding_fines"] > 0:
-        reasons.append(f"Borrower has outstanding fines of {row['outstanding_fines']} PLN.")
+        reasons.append(f"Borrower has outstanding fines of {row['outstanding_fines']:.2f} PLN.")
 
     return reasons
 

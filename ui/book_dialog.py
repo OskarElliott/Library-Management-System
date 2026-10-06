@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QComboBox, QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSpinBox, QVBoxLayout, QMessageBox, QTableWidget, QTableWidgetItem
 from services import books
-from ui.formatting import to_text
+from ui.formatting import REQUIRED_MARK, to_text
 
 class BookDialog(QDialog):
     def __init__(self, librarian, book=None):
@@ -16,6 +16,8 @@ class BookDialog(QDialog):
             self._load_copies()
 
     def _setup_ui(self):
+        self.resize(700, 560)
+
         if self._book is None:
             self.setWindowTitle("Add Book")
         else:
@@ -33,13 +35,13 @@ class BookDialog(QDialog):
         self._publisher_field = QLineEdit()
         self._year_field = QLineEdit()
 
-        form.addRow("Title", self._title_field)
-        form.addRow("Author first name", self._first_name_field)
-        form.addRow("Author last name", self._last_name_field)
-        form.addRow("Genre", self._genre_box)
-        form.addRow("ISBN", self._isbn_field)
+        form.addRow("ISBN" + REQUIRED_MARK, self._isbn_field)
+        form.addRow("Title" + REQUIRED_MARK, self._title_field)
+        form.addRow("Genre" + REQUIRED_MARK, self._genre_box)
+        form.addRow("Publication Year", self._year_field)
         form.addRow("Publisher", self._publisher_field)
-        form.addRow("Year", self._year_field)
+        form.addRow("Author first name", self._first_name_field)
+        form.addRow("Author last name" + REQUIRED_MARK, self._last_name_field)
 
         #copies are chosen when the book is added and only counted afterwards
         if self._book is None:
@@ -59,6 +61,7 @@ class BookDialog(QDialog):
             self._copies_table.setEditTriggers(QTableWidget.NoEditTriggers)
             self._copies_table.setSelectionBehavior(QTableWidget.SelectRows)
             self._copies_table.setSelectionMode(QTableWidget.SingleSelection)
+            self._copies_table.verticalHeader().setVisible(False)
 
             copies_layout.addWidget(self._copies_table)
 

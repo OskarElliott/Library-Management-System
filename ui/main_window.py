@@ -27,7 +27,7 @@ class MainWindow(QMainWindow):
         top_bar = QHBoxLayout()
         greeting_message = QLabel(f"Welcome, {self._librarian.get_first_name()}")
 
-        self._log_out_button = QPushButton("Log out")
+        self._log_out_button = QPushButton("Log Out")
         self._log_out_button.clicked.connect(self._log_out)
         top_bar.addWidget(greeting_message)
         top_bar.addStretch()
@@ -56,6 +56,7 @@ class MainWindow(QMainWindow):
         self._book_table.setEditTriggers(QTableWidget.NoEditTriggers) # read only
         self._book_table.setSelectionBehavior(QTableWidget.SelectRows) # select whole rows
         self._book_table.setSelectionMode(QTableWidget.SingleSelection) #one row at a time
+        self._book_table.verticalHeader().setVisible(False)
 
         # books tab holds the controls and the table
         books_tab = QWidget()
@@ -75,6 +76,7 @@ class MainWindow(QMainWindow):
         self._loan_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self._loan_table.setSelectionBehavior(QTableWidget.SelectRows)
         self._loan_table.setSelectionMode(QTableWidget.SingleSelection)
+        self._loan_table.verticalHeader().setVisible(False)
 
         loans_tab = QWidget()
         loans_layout = QVBoxLayout()
@@ -88,6 +90,7 @@ class MainWindow(QMainWindow):
         self._overdue_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self._overdue_table.setSelectionBehavior(QTableWidget.SelectRows)
         self._overdue_table.setSelectionMode(QTableWidget.SingleSelection)
+        self._overdue_table.verticalHeader().setVisible(False)
 
         overdue_tab = QWidget()
         overdue_layout = QVBoxLayout()
@@ -134,7 +137,7 @@ class MainWindow(QMainWindow):
         self._loan_table.setRowCount(len(loan_rows))
 
         for row_index, loan in enumerate(loan_rows):
-            borrower = f'{to_text(loan["first_name"])} {to_text(loan["last_name"])}'.strip()
+            borrower = f'{to_text(loan["last_name"])}, {to_text(loan["first_name"])}'.strip()
 
             self._loan_table.setItem(row_index, 0, QTableWidgetItem(borrower))
             self._loan_table.setItem(row_index, 1, QTableWidgetItem(to_text(loan["title"])))
@@ -152,7 +155,7 @@ class MainWindow(QMainWindow):
         self._overdue_table.setRowCount(len(overdue_rows))
 
         for row_index, loan in enumerate(overdue_rows):
-            borrower = f'{to_text(loan["first_name"])} {to_text(loan["last_name"])}'.strip()
+            borrower = f'{to_text(loan["last_name"])}, {to_text(loan["first_name"])}'.strip()
 
             self._overdue_table.setItem(row_index, 0, QTableWidgetItem(borrower))
             self._overdue_table.setItem(row_index, 1, QTableWidgetItem(to_text(loan["title"])))

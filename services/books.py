@@ -121,7 +121,7 @@ def add_book(isbn, title, genre_id, publication_year, publisher, author_first_na
             cur.execute("SELECT 1 FROM Books WHERE isbn = ?", (isbn,))
 
             if cur.fetchone() is not None:
-                raise ValueError("ISBN already exists")
+                raise ValueError("A book with this ISBN already exists")
 
             # insert book
             cur.execute("""INSERT INTO Books(isbn, title, publication_year, publisher, genre_id)
@@ -153,7 +153,7 @@ def edit_book(book_id, isbn, title, genre_id, publication_year, publisher, autho
             cur.execute("SELECT book_id FROM Books WHERE isbn = ? AND book_id != ?", (isbn, book_id))
 
             if cur.fetchone() is not None:
-                raise ValueError("ISBN already exists")
+                raise ValueError("A book with this ISBN already exists")
 
             cur.execute("""UPDATE Books 
                         SET isbn = ?, title = ?, publication_year = ?, publisher = ?, genre_id = ? 

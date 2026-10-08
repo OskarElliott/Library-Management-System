@@ -1,5 +1,5 @@
 from datetime import date
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QMainWindow, QPushButton, QTabWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QMainWindow, QPushButton, QTabWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QMessageBox
 from services import books, loans
 from ui.book_dialog import BookDialog
 from ui.loan_dialog import IssueLoanDialog
@@ -86,6 +86,15 @@ class MainWindow(QMainWindow):
         self._issue_loan_button = QPushButton("Issue Loan")
         self._issue_loan_button.clicked.connect(self._issue_loan)
         loan_buttons.addWidget(self._issue_loan_button)
+
+        self._return_button = QPushButton("Return")
+        self._return_button.clicked.connect(self._return_loan)
+        loan_buttons.addWidget(self._return_button)
+
+        self._mark_lost_button = QPushButton("Mark Lost")
+        self._mark_lost_button.clicked.connect(self._mark_lost)
+        loan_buttons.addWidget(self._mark_lost_button)
+
         loan_buttons.addStretch()
 
         loans_layout.addLayout(loan_buttons)
@@ -181,6 +190,15 @@ class MainWindow(QMainWindow):
         self._load_loans()
         self._load_overdue()
 
+    def _selected_loan_row(self):
+        selected_rows = self._loan_table.selectionModel().selectedRows()
+
+        if not selected_rows:
+            self._status_label.setText("Select a loan first.")
+            return None
+
+        return selected_rows[0].row()
+
     def _add_book(self):
         dialog = BookDialog(self._librarian)
 
@@ -213,3 +231,61 @@ class MainWindow(QMainWindow):
         if dialog.exec():
             self._load_loan_tables()
             self._status_label.setText(dialog.get_message())
+
+    def _return_loan(self):
+        self._status_label.setText("")
+
+        row_index = self._selected_loan_row()
+
+        if row_index is None:
+            return
+
+        loan_id = int(self._loan_table.item(row_index, 0).text())
+        borrower = self._loan_table.item(row_index, 1).text()
+        title = self._loan_table.item(row_index, 2).text()
+
+        answer = QMessageBox.question(self,"Return Loan",f"Return '{title}' borrowed by {borrower}?",
+        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            days_late = loans.return_loan(loan_id,self._librarian.get_user_id(),date.today().isoformat())
+
+        except ValueError as error:
+            self._status_label.setText(str(error))
+            return
+
+        self._load_loan_tables()
+        self._status_label.setText(f"Returned '{title}'. Days late: {days_late}.")
+
+    def _mark_lost(self):
+        self._status_label.setText("")
+
+        row_index = self._selected_loan_row()
+
+        if row_index is None:
+            return
+
+        loan_id = int(self._loan_table.item(row_index, 0).text())
+        borrower = self._loan_table.item(row_index, 1).text()
+        title = self._loan_table.item(row_index, 2).text()
+
+        answer = QMessageBox.question(self,"Mark Lost",f"Mark '{title}' borrowed by {borrower} as lost?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            loans.mark_lost(
+                loan_id,
+                self._librarian.get_user_id()
+            )
+        except ValueError as error:
+            self._status_label.setText(str(error))
+            return
+
+        self._load_loan_tables()
+        self._status_label.setText(f"'{title}' marked as lost.")

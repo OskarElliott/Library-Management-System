@@ -80,18 +80,18 @@ class IssueLoanDialog(QDialog):
     def _filter_books(self, text):
         term = text.strip().lower()
 
-        self._title_list.clear()
+        self._title_list.clear() # reset ui list to prevent old results from showing
 
         for book in self._all_books:
             title = to_text(book["title"])
             author = f'{to_text(book["first_name"])} {to_text(book["last_name"])}'.strip()
 
-            if term in title.lower() or term in author.lower():
+            if term in title.lower() or term in author.lower(): # match if the search term is in the title or author name
                 item = QListWidgetItem(f"{title} by {author}")
-                item.setData(Qt.UserRole, book["book_id"])
+                item.setData(Qt.UserRole, book["book_id"]) # stores the database id of the book in the item for later retrieval
                 self._title_list.addItem(item)
 
-        self._load_copies()
+        self._load_copies() # refresh dependent ui elements based on the new list of books 
 
     def _check_borrower(self):
         user_id = self._borrower_box.currentData()

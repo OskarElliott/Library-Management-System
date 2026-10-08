@@ -58,92 +58,92 @@ def issue_loan(copy_id, user_id, librarian_id, today):
         raise ValueError("\n".join(reasons))
 
     con = get_connection()
-    cur = con.cursor()
+    
+    try:
+        cur = con.cursor()
 
-    cur.execute("SELECT status FROM BookCopies WHERE copy_id = ?", (copy_id,))
+        cur.execute("SELECT status FROM BookCopies WHERE copy_id = ?", (copy_id,))
 
-    row = cur.fetchone()
+        row = cur.fetchone()
 
-    if row is None:
+        if row is None:
+            raise ValueError("Copy not found.")
+
+        if row["status"] != "available":
+            raise ValueError("Copy is unavailable.")
+
+        user = users.get_user(user_id)
+        due_date = date.fromisoformat(today) + timedelta(days=user.MAX_LOAN_DAYS)
+
+        with con:
+            cur.execute(("""INSERT INTO Loans(copy_id, user_id, checkout_date, due_date, status) 
+                            VALUES (?,?,?,?, 'active')"""),(copy_id, user_id, today, due_date.isoformat()))
+            
+            loan_id = cur.lastrowid
+
+            cur.execute("UPDATE BookCopies SET status = 'loaned' WHERE copy_id = ?", (copy_id,))
+
+            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, 'issue_loan', 'Loans', ?)",(librarian_id, loan_id))
+
+            return loan_id, due_date.isoformat()
+
+    finally:
         con.close()
-        raise ValueError("Copy not found.")
-
-    if row["status"] != "available":
-        con.close()
-        raise ValueError("Copy is unavailable.")
-
-    user = users.get_user(user_id)
-    due_date = date.fromisoformat(today) + timedelta(days=user.MAX_LOAN_DAYS)
-
-    with con:
-        cur.execute("""INSERT INTO Loans (copy_id, user_id, checkout_date, due_date, status)
-                        VALUES (?,?,?,?, 'active')""", (copy_id, user_id, today, due_date.isoformat()))
-
-        loan_id = cur.lastrowid
-
-        cur.execute("UPDATE BookCopies SET status = 'loaned' WHERE copy_id = ?", (copy_id,))
-
-        cur.execute("""INSERT INTO AuditLog (user_id, action, table_name, record_id) 
-                        VALUES (?, 'issue_loan', 'Loans', ?)""", (librarian_id, loan_id))
-
-    con.close()
-    return loan_id, due_date.isoformat()
-
+            
 def return_loan(loan_id, librarian_id, today):
     con = get_connection()
-    cur = con.cursor()
 
-    cur.execute("SELECT status, due_date, copy_id FROM Loans WHERE loan_id = ?", (loan_id,))
+    try:
+        cur = con.cursor()
 
-    row = cur.fetchone()
+        cur.execute("SELECT status, due_date, copy_id FROM Loans WHERE loan_id = ?", (loan_id,))
 
-    if row is None:
+        row = cur.fetchone()
+
+        if row is None:
+            raise ValueError("Loan not found.")
+
+        if row["status"] == "returned":
+            raise ValueError("Loan has already been returned.")
+
+        days_late = (date.fromisoformat(today) - date.fromisoformat(row["due_date"])).days
+        if days_late < 0:
+            days_late = 0
+
+        with con:
+            cur.execute("UPDATE Loans SET status = 'returned', return_date = ? WHERE loan_id = ?",(today, loan_id))
+
+            cur.execute("UPDATE BookCopies SET status = 'available' WHERE copy_id = ? AND status != 'discarded'", (row["copy_id"],))
+
+            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, 'return_loan', 'Loans', ?)",(librarian_id, loan_id))
+
+        return days_late
+
+    finally:
         con.close()
-        raise ValueError("Loan not found.")
-
-    if row["status"] == "returned":
-        con.close()
-        raise ValueError("Loan has already been returned.")
-
-    days_late = (date.fromisoformat(today) - date.fromisoformat(row["due_date"])).days
-
-    if days_late < 0:
-        days_late = 0
-
-    with con:
-        cur.execute("UPDATE Loans SET status = 'returned', return_date = ? WHERE loan_id = ?", (today, loan_id))
-
-        cur.execute("UPDATE BookCopies SET status = 'available' WHERE copy_id = ?", (row["copy_id"],))
-
-        cur.execute("INSERT INTO AuditLog (user_id, action, table_name, record_id) VALUES (?, 'return_loan', 'Loans', ?)", (librarian_id, loan_id))
-
-    con.close()
-    return days_late
 
 def mark_lost(loan_id, librarian_id):
     con = get_connection()
-    cur = con.cursor()
 
-    cur.execute("SELECT status, copy_id FROM Loans WHERE loan_id = ?", (loan_id,))
+    try:
+        cur = con.cursor()
 
-    row = cur.fetchone()
+        cur.execute("SELECT status, copy_id FROM Loans WHERE loan_id = ?",(loan_id,))
 
-    if row is None:
+        row = cur.fetchone()
+
+        if row is None:
+            raise ValueError("Loan not found.")
+
+        if row["status"] != "active":
+            raise ValueError("Only active loans can be marked as lost.")
+
+        with con:
+            cur.execute("UPDATE Loans SET status = 'lost' WHERE loan_id = ?",(loan_id,))
+
+            cur.execute("UPDATE BookCopies SET status = 'lost' WHERE copy_id = ?",(row["copy_id"],))
+
+            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id)VALUES (?, 'mark_lost', 'Loans', ?)", (librarian_id, loan_id))
+
+    finally:
         con.close()
-        raise ValueError("Loan not found.")
-
-    if row["status"] != "active":
-        con.close()
-        raise ValueError("Only active loans can be marked as lost.")
-
-    with con:
-        cur.execute("UPDATE Loans SET status = 'lost' WHERE loan_id = ?", (loan_id,))
-
-        cur.execute("UPDATE BookCopies SET status = 'lost' WHERE copy_id = ?", (row["copy_id"],))
-
-        cur.execute("INSERT INTO AuditLog (user_id, action, table_name, record_id) VALUES (?, 'mark_lost', 'Loans', ?)", (librarian_id, loan_id))
-
-    con.close()
-
-
-        

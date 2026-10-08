@@ -34,17 +34,13 @@ class MainWindow(QMainWindow):
         top_bar.addWidget(self._log_out_button)
         layout.addLayout(top_bar)
 
-        # search + edit 
+         
         controls = QHBoxLayout()
         self._search_bar = QLineEdit()
-        self._search_button = QPushButton("Search")
         self._add_book_button = QPushButton("Add Book")
         self._edit_book_button = QPushButton("Edit Book")
         self._add_book_button.clicked.connect(self._add_book)
         self._edit_book_button.clicked.connect(self._edit_book)
-        controls.addWidget(QLabel("Search"))
-        controls.addWidget(self._search_bar)
-        controls.addWidget(self._search_button)
         controls.addStretch()
         controls.addWidget(self._add_book_button)
         controls.addWidget(self._edit_book_button)

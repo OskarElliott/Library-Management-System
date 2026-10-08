@@ -1,3 +1,4 @@
+from datetime import date
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QComboBox, QFormLayout, QHBoxLayout, QLineEdit, QLabel, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout
 from services import books, users, loans
@@ -11,6 +12,7 @@ class IssueLoanDialog(QDialog):
         self._all_books = books.get_all_books()
 
         self._borrower_ok = False # set before setup so signals can read it
+        self._message = ""
 
         self._setup_ui()
         self._load_borrowers()
@@ -57,6 +59,7 @@ class IssueLoanDialog(QDialog):
         self._borrower_box.currentIndexChanged.connect(self._check_borrower)
         self._title_list.itemSelectionChanged.connect(self._load_copies)
         self._copy_box.currentIndexChanged.connect(self._update_issue_button)
+        self._issue_button.clicked.connect(self._issue)
         self._issue_button.setEnabled(False)
 
         self.setLayout(layout)
@@ -136,3 +139,26 @@ class IssueLoanDialog(QDialog):
     def _update_issue_button(self):
         copy_chosen = self._copy_box.currentData() is not None
         self._issue_button.setEnabled(self._borrower_ok and copy_chosen)
+
+    def _issue(self):
+        self._error_label.setText("")
+
+        user_id = self._borrower_box.currentData()
+        copy_id = self._copy_box.currentData()
+        today = date.today().isoformat()
+
+        try:
+            loan_id, due_date = loans.issue_loan(copy_id, user_id, self._librarian.get_user_id(), today)
+
+        except ValueError as error:
+            self._error_label.setText(str(error))
+            return
+
+        self._message = f"Loan {loan_id} issued to {self._borrower_box.currentText()}, due {due_date}."
+
+        self.accept()
+
+    def get_message(self):
+        return self._message
+
+    

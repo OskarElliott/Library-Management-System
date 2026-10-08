@@ -13,8 +13,7 @@ class MainWindow(QMainWindow):
         self.logged_out = False
         self._setup_ui()
         self._load_books()
-        self._load_loans()
-        self._load_overdue()
+        self._load_loan_tables()
 
     def _setup_ui(self):     
         self.setWindowTitle("Library Management System")
@@ -70,10 +69,11 @@ class MainWindow(QMainWindow):
         tabs = QTabWidget()
         tabs.addTab(books_tab, "Books")
         self._loan_table = QTableWidget()
-        self._loan_table.setColumnCount(6)
+        self._loan_table.setColumnCount(7)
         self._loan_table.setHorizontalHeaderLabels(
-            ["Borrower", "Title", "Copy ID", "Loan Date", "Due Date", "Days Remaining"]
+            ["Loan ID", "Borrower", "Title", "Copy ID", "Loan Date", "Due Date", "Days Remaining"]
         )
+        self._loan_table.setColumnHidden(0, True)
         self._loan_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self._loan_table.setSelectionBehavior(QTableWidget.SelectRows)
         self._loan_table.setSelectionMode(QTableWidget.SingleSelection)
@@ -113,7 +113,7 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(tabs)
 
-        # shows errors from the buttons above
+        # result of the last action, success or error
         self._status_label = QLabel("")
         layout.addWidget(self._status_label)
 
@@ -149,12 +149,13 @@ class MainWindow(QMainWindow):
         for row_index, loan in enumerate(loan_rows):
             borrower = f'{to_text(loan["last_name"])}, {to_text(loan["first_name"])}'.strip()
 
-            self._loan_table.setItem(row_index, 0, QTableWidgetItem(borrower))
-            self._loan_table.setItem(row_index, 1, QTableWidgetItem(to_text(loan["title"])))
-            self._loan_table.setItem(row_index, 2, QTableWidgetItem(to_text(loan["copy_id"])))
-            self._loan_table.setItem(row_index, 3, QTableWidgetItem(to_text(loan["checkout_date"])))
-            self._loan_table.setItem(row_index, 4, QTableWidgetItem(to_text(loan["due_date"])))
-            self._loan_table.setItem(row_index, 5, QTableWidgetItem(to_text(int(loan["days_remaining"]))))
+            self._loan_table.setItem(row_index, 0, QTableWidgetItem(to_text(loan["loan_id"])))
+            self._loan_table.setItem(row_index, 1, QTableWidgetItem(borrower))
+            self._loan_table.setItem(row_index, 2, QTableWidgetItem(to_text(loan["title"])))
+            self._loan_table.setItem(row_index, 3, QTableWidgetItem(to_text(loan["copy_id"])))
+            self._loan_table.setItem(row_index, 4, QTableWidgetItem(to_text(loan["checkout_date"])))
+            self._loan_table.setItem(row_index, 5, QTableWidgetItem(to_text(loan["due_date"])))
+            self._loan_table.setItem(row_index, 6, QTableWidgetItem(to_text(int(loan["days_remaining"]))))
 
         self._loan_table.resizeColumnsToContents()
 
@@ -175,6 +176,10 @@ class MainWindow(QMainWindow):
             self._overdue_table.setItem(row_index, 5, QTableWidgetItem(to_text(int(loan["days_overdue"]))))
 
         self._overdue_table.resizeColumnsToContents()
+
+    def _load_loan_tables(self):
+        self._load_loans()
+        self._load_overdue()
 
     def _add_book(self):
         dialog = BookDialog(self._librarian)
@@ -201,5 +206,10 @@ class MainWindow(QMainWindow):
             self._load_books()
 
     def _issue_loan(self):
+        self._status_label.setText("")
+
         dialog = IssueLoanDialog(self._librarian)
-        dialog.exec()
+
+        if dialog.exec():
+            self._load_loan_tables()
+            self._status_label.setText(dialog.get_message())

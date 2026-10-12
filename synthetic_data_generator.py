@@ -352,7 +352,10 @@ def seed_roles(con):
 def seed_fine_rules(con, role_ids):
     cur = con.cursor()
 
-    fine_rules = [(role_ids["student"], 3, 7, 0.50, 1.00, 20.00), (role_ids["teacher"], 2, 1, 0, 0.5, 50), (role_ids["librarian"], 1, 1, 0.5, 1, 50)] # !! placeholder values
+    fine_rules = [ # consistent with polish library fine rates
+        (role_ids["student"], 2, 10, 0.50, 1.00, 20.00),
+        (role_ids["teacher"], 2, 10, 0.50, 1.00, 20.00),
+    ]
 
     cur.executemany ("""INSERT INTO FineRules(role_id, grace_days, tier_1_days, tier_1_rate, tier_2_rate, max_amount) VALUES (?,?,?,?,?,?)""", fine_rules)
 

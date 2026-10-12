@@ -1,5 +1,5 @@
 from db.connection import get_connection
-from services import users
+from services import users, fines
 from datetime import date, timedelta
 
 def get_active_loans(today):
@@ -96,7 +96,8 @@ def return_loan(loan_id, librarian_id, today):
     try:
         cur = con.cursor()
 
-        cur.execute("SELECT status, due_date, copy_id FROM Loans WHERE loan_id = ?", (loan_id,))
+        cur.execute("""SELECT Loans.status, Loans.due_date, Loans.copy_id, Users.role_id
+                    FROM Loans JOIN Users ON Loans.user_id = Users.user_id WHERE Loans.loan_id = ?""", (loan_id,))
 
         row = cur.fetchone()
 
@@ -105,30 +106,43 @@ def return_loan(loan_id, librarian_id, today):
 
         if row["status"] == "returned":
             raise ValueError("Loan has already been returned.")
-
+        
         days_late = (date.fromisoformat(today) - date.fromisoformat(row["due_date"])).days
+
         if days_late < 0:
             days_late = 0
+
+        fine_amount = 0.0
+
+        if row["status"] == "active":
+            closed_days = fines.get_closed_days(cur)
+            chargeable_days = fines.count_chargeable_days(row["due_date"], today, closed_days)
+            rule = fines.get_fine_rule(cur, row["role_id"])
+            fine_amount = fines.calculate_fine(chargeable_days, rule)
 
         with con:
             cur.execute("UPDATE Loans SET status = 'returned', return_date = ? WHERE loan_id = ?",(today, loan_id))
 
             cur.execute("UPDATE BookCopies SET status = 'available' WHERE copy_id = ? AND status != 'discarded'", (row["copy_id"],))
 
-            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, 'return_loan', 'Loans', ?)",(librarian_id, loan_id))
+            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES(?, 'return_loan', 'Loans', ?)", (librarian_id, loan_id))
 
-        return days_late
+            if fine_amount > 0:
+                fines.add_fine(cur, loan_id, fine_amount, today, librarian_id)
 
+        return days_late, fine_amount
+    
     finally:
         con.close()
 
-def mark_lost(loan_id, librarian_id):
+def mark_lost(loan_id, librarian_id, today):
     con = get_connection()
 
     try:
         cur = con.cursor()
 
-        cur.execute("SELECT status, copy_id FROM Loans WHERE loan_id = ?",(loan_id,))
+        cur.execute("""SELECT Loans.status, Loans.copy_id, Users.role_id
+                    FROM Loans JOIN Users ON Loans.user_id = Users.user_id WHERE Loans.loan_id = ?""", (loan_id,))
 
         row = cur.fetchone()
 
@@ -138,12 +152,24 @@ def mark_lost(loan_id, librarian_id):
         if row["status"] != "active":
             raise ValueError("Only active loans can be marked as lost.")
 
+        rule = fines.get_fine_rule(cur, row["role_id"])
+        fine_amount = rule["max_amount"]
+
         with con:
-            cur.execute("UPDATE Loans SET status = 'lost' WHERE loan_id = ?",(loan_id,))
+            cur.execute(
+                "UPDATE Loans SET status = 'lost' WHERE loan_id = ?",
+                (loan_id,))
 
-            cur.execute("UPDATE BookCopies SET status = 'lost' WHERE copy_id = ?",(row["copy_id"],))
+            cur.execute(
+                "UPDATE BookCopies SET status = 'lost' WHERE copy_id = ?",
+                (row["copy_id"],))
 
-            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id)VALUES (?, 'mark_lost', 'Loans', ?)", (librarian_id, loan_id))
+            cur.execute("""INSERT INTO AuditLog(user_id, action, table_name, record_id) 
+                            VALUES (?, 'mark_lost', 'Loans', ?)""", (librarian_id, loan_id))
+
+            fines.add_fine(cur, loan_id, fine_amount, today, librarian_id)
+
+        return fine_amount
 
     finally:
         con.close()

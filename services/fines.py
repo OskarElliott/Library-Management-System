@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from db.connection import get_connection
 
 def count_chargeable_days(due_date, return_date, closed_days):
     due = date.fromisoformat(due_date)
@@ -49,3 +50,46 @@ def add_fine(cur, loan_id, amount, today, librarian_id):
     fine_id = cur.lastrowid
 
     cur.execute("""INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES(?, 'add_fine', 'Fines', ?)""", (librarian_id, fine_id))
+
+def get_unpaid_fines():
+    con = get_connection()
+
+    try:
+        cur = con.cursor()
+        cur.execute("""SELECT Fines.fine_id, Users.first_name, Users.last_name, Books.title, Fines.amount, Fines.issued_date
+                    FROM Fines JOIN Loans ON Fines.loan_id = Loans.loan_id
+                    JOIN Users ON Loans.user_id = Users.user_id
+                    JOIN BookCopies ON Loans.copy_id = BookCopies.copy_id
+                    JOIN Books ON BookCopies.book_id = Books.book_id
+                    WHERE Fines.status = 'unpaid' ORDER BY Users.last_name, Fines.issued_date""")
+        rows = cur.fetchall()
+
+    finally:
+        con.close()
+
+    return rows
+
+def record_payment(fine_id, librarian_id, today):
+    con = get_connection()
+
+    try:
+        cur = con.cursor()
+        cur.execute("SELECT status FROM Fines WHERE fine_id = ?", (fine_id,))
+        row = cur.fetchone()
+
+        if row is None:
+            raise ValueError("Fine not found.")
+
+        if row["status"] == "paid":
+            raise ValueError("Fine has already been paid.")
+
+        with con:
+            cur.execute("""UPDATE Fines
+            SET status = 'paid', paid_date = ? 
+            WHERE fine_id = ?""", (today, fine_id))
+
+            cur.execute("""INSERT INTO AuditLog(user_id, action, table_name, record_id)
+                        VALUES(?, 'record_payment', 'Fines', ?)""", (librarian_id, fine_id))
+
+    finally:
+        con.close()

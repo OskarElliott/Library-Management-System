@@ -1,6 +1,6 @@
 from datetime import date
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QMainWindow, QPushButton, QTabWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QMessageBox
-from services import books, loans
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QMainWindow, QPushButton, QTabWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QMessageBox
+from services import books, loans, fines, audit
 from ui.book_dialog import BookDialog
 from ui.loan_dialog import IssueLoanDialog
 from ui.formatting import to_text
@@ -13,7 +13,7 @@ class MainWindow(QMainWindow):
         self.logged_out = False
         self._setup_ui()
         self._load_books()
-        self._load_loan_tables()
+        self._load_tables()
 
     def _setup_ui(self):     
         self.setWindowTitle("Library Management System")
@@ -34,9 +34,8 @@ class MainWindow(QMainWindow):
         top_bar.addWidget(self._log_out_button)
         layout.addLayout(top_bar)
 
-         
+            
         controls = QHBoxLayout()
-        self._search_bar = QLineEdit()
         self._add_book_button = QPushButton("Add Book")
         self._edit_book_button = QPushButton("Edit Book")
         self._add_book_button.clicked.connect(self._add_book)
@@ -113,8 +112,47 @@ class MainWindow(QMainWindow):
         overdue_tab.setLayout(overdue_layout)
         tabs.addTab(overdue_tab, "Overdue")
 
-        for tab_name in ["Fines", "Audit Log"]:
-            tabs.addTab(QLabel(None), tab_name)
+        self._fine_table = QTableWidget()
+        self._fine_table.setColumnCount(5)
+        self._fine_table.setHorizontalHeaderLabels(
+            ["Fine ID", "Borrower", "Title", "Amount (PLN)", "Date Issued"]
+        )
+        self._fine_table.setColumnHidden(0, True)
+        self._fine_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self._fine_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self._fine_table.setSelectionMode(QTableWidget.SingleSelection)
+        self._fine_table.verticalHeader().setVisible(False)
+
+        fines_tab = QWidget()
+        fines_layout = QVBoxLayout()
+
+        fine_buttons = QHBoxLayout()
+        self._record_payment_button = QPushButton("Record Payment")
+        self._record_payment_button.clicked.connect(self._record_payment)
+        fine_buttons.addWidget(self._record_payment_button)
+        fine_buttons.addStretch()
+
+        fines_layout.addLayout(fine_buttons)
+        fines_layout.addWidget(self._fine_table)
+        fines_tab.setLayout(fines_layout)
+        tabs.addTab(fines_tab, "Fines")
+
+        self._audit_table = QTableWidget()
+        self._audit_table.setColumnCount(5)
+        self._audit_table.setHorizontalHeaderLabels(
+            ["Time", "Staff", "Action", "Table", "Record ID"]
+        )
+        self._audit_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self._audit_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self._audit_table.setSelectionMode(QTableWidget.SingleSelection)
+        self._audit_table.verticalHeader().setVisible(False)
+
+        audit_tab = QWidget()
+        audit_layout = QVBoxLayout()
+        audit_layout.addWidget(self._audit_table)
+        audit_tab.setLayout(audit_layout)
+        self._audit_tab_index = tabs.addTab(audit_tab, "Audit Log")
+        tabs.currentChanged.connect(self._tab_changed)
 
         layout.addWidget(tabs)
 
@@ -152,7 +190,7 @@ class MainWindow(QMainWindow):
         self._loan_table.setRowCount(len(loan_rows))
 
         for row_index, loan in enumerate(loan_rows):
-            borrower = f'{to_text(loan["last_name"])}, {to_text(loan["first_name"])}'.strip()
+            borrower = f'{to_text(loan["last_name"])}, {to_text(loan["first_name"])}'
 
             self._loan_table.setItem(row_index, 0, QTableWidgetItem(to_text(loan["loan_id"])))
             self._loan_table.setItem(row_index, 1, QTableWidgetItem(borrower))
@@ -171,7 +209,7 @@ class MainWindow(QMainWindow):
         self._overdue_table.setRowCount(len(overdue_rows))
 
         for row_index, loan in enumerate(overdue_rows):
-            borrower = f'{to_text(loan["last_name"])}, {to_text(loan["first_name"])}'.strip()
+            borrower = f'{to_text(loan["last_name"])}, {to_text(loan["first_name"])}'
 
             self._overdue_table.setItem(row_index, 0, QTableWidgetItem(borrower))
             self._overdue_table.setItem(row_index, 1, QTableWidgetItem(to_text(loan["title"])))
@@ -182,9 +220,44 @@ class MainWindow(QMainWindow):
 
         self._overdue_table.resizeColumnsToContents()
 
-    def _load_loan_tables(self):
+    def _load_fines(self):
+        fine_rows = fines.get_unpaid_fines()
+        self._fine_table.setRowCount(len(fine_rows))
+
+        for row_index, fine in enumerate(fine_rows):
+            borrower = f'{to_text(fine["last_name"])}, {to_text(fine["first_name"])}'
+
+            self._fine_table.setItem(row_index, 0, QTableWidgetItem(to_text(fine["fine_id"])))
+            self._fine_table.setItem(row_index, 1, QTableWidgetItem(borrower))
+            self._fine_table.setItem(row_index, 2, QTableWidgetItem(to_text(fine["title"])))
+            self._fine_table.setItem(row_index, 3, QTableWidgetItem(f'{fine["amount"]:.2f}'))
+            self._fine_table.setItem(row_index, 4, QTableWidgetItem(to_text(fine["issued_date"])))
+
+        self._fine_table.resizeColumnsToContents()
+
+    def _tab_changed(self, index):
+        if index == self._audit_tab_index:
+            self._load_audit_log()
+
+    def _load_audit_log(self):
+        audit_rows = audit.get_audit_log()
+        self._audit_table.setRowCount(len(audit_rows))
+
+        for row_index, audit_row in enumerate(audit_rows):
+            staff = f'{to_text(audit_row["last_name"])}, {to_text(audit_row["first_name"])}'
+
+            self._audit_table.setItem(row_index, 0, QTableWidgetItem(to_text(audit_row["local_time"])))
+            self._audit_table.setItem(row_index, 1, QTableWidgetItem(staff))
+            self._audit_table.setItem(row_index, 2, QTableWidgetItem(to_text(audit_row["action"])))
+            self._audit_table.setItem(row_index, 3, QTableWidgetItem(to_text(audit_row["table_name"])))
+            self._audit_table.setItem(row_index, 4, QTableWidgetItem(to_text(audit_row["record_id"])))
+
+        self._audit_table.resizeColumnsToContents()
+
+    def _load_tables(self):
         self._load_loans()
         self._load_overdue()
+        self._load_fines()
 
     def _selected_loan_row(self):
         selected_rows = self._loan_table.selectionModel().selectedRows()
@@ -225,7 +298,7 @@ class MainWindow(QMainWindow):
         dialog = IssueLoanDialog(self._librarian)
 
         if dialog.exec():
-            self._load_loan_tables()
+            self._load_tables()
             self._status_label.setText(dialog.get_message())
 
     def _return_loan(self):
@@ -240,21 +313,29 @@ class MainWindow(QMainWindow):
         borrower = self._loan_table.item(row_index, 1).text()
         title = self._loan_table.item(row_index, 2).text()
 
-        answer = QMessageBox.question(self,"Return Loan",f"Return '{title}' borrowed by {borrower}?",
-        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        answer = QMessageBox.question(self, "Return Loan", f"Return '{title}' borrowed by {borrower}?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
 
         if answer != QMessageBox.StandardButton.Yes:
             return
 
         try:
-            days_late = loans.return_loan(loan_id,self._librarian.get_user_id(),date.today().isoformat())
+            today = date.today().isoformat()
+            days_late, fine_amount = loans.return_loan(
+                loan_id, self._librarian.get_user_id(), today
+            )
 
         except ValueError as error:
             self._status_label.setText(str(error))
             return
 
-        self._load_loan_tables()
-        self._status_label.setText(f"Returned '{title}'. Days late: {days_late}.")
+        self._load_tables()
+
+        message = f"Returned '{title}'. Days late: {days_late}."
+        if fine_amount > 0:
+            message += f" Fine: {fine_amount:.2f} PLN."
+
+        self._status_label.setText(message)
 
     def _mark_lost(self):
         self._status_label.setText("")
@@ -268,20 +349,58 @@ class MainWindow(QMainWindow):
         borrower = self._loan_table.item(row_index, 1).text()
         title = self._loan_table.item(row_index, 2).text()
 
-        answer = QMessageBox.question(self,"Mark Lost",f"Mark '{title}' borrowed by {borrower} as lost?",
+        answer = QMessageBox.question(self, "Mark Lost", f"Mark '{title}' borrowed by {borrower} as lost?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
 
         if answer != QMessageBox.StandardButton.Yes:
             return
 
         try:
-            loans.mark_lost(
-                loan_id,
-                self._librarian.get_user_id()
+            today = date.today().isoformat()
+            fine_amount = loans.mark_lost(loan_id, self._librarian.get_user_id(), today)
+
+        except ValueError as error:
+            self._status_label.setText(str(error))
+            return
+
+        self._load_tables()
+        self._status_label.setText(f"'{title}' marked as lost. Fine: {fine_amount:.2f} PLN.")
+
+    def _record_payment(self):
+        self._status_label.setText("")
+
+        selected_rows = self._fine_table.selectionModel().selectedRows()
+
+        if not selected_rows:
+            self._status_label.setText("Select a fine first.")
+            return
+
+        row_index = selected_rows[0].row()
+        fine_id = int(self._fine_table.item(row_index, 0).text())
+        borrower = self._fine_table.item(row_index, 1).text()
+        amount = self._fine_table.item(row_index, 3).text()
+
+        answer = QMessageBox.question(
+            self,
+            "Record Payment",
+            f"Record payment of {amount} PLN from {borrower}?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            today = date.today().isoformat()
+            fines.record_payment(
+                fine_id, self._librarian.get_user_id(), today
             )
         except ValueError as error:
             self._status_label.setText(str(error))
             return
 
-        self._load_loan_tables()
-        self._status_label.setText(f"'{title}' marked as lost.")
+        self._load_tables()
+        self._status_label.setText(
+            f"Payment of {amount} PLN recorded for {borrower}."
+        )

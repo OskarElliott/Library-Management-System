@@ -43,7 +43,7 @@ def parse_book(book):
 
 
 def lookup_isbn(isbn):
-    isbn = isbn.replace(" ", "").replace("-", "")
+    isbn = isbn.replace(" ", "").replace("-", "").upper()
 
     valid_isbn10 = (len(isbn) == 10 and isbn[:9].isdigit() and (isbn[9].isdigit() or isbn[9] == "X"))
     valid_isbn13 = len(isbn) == 13 and isbn.isdigit()

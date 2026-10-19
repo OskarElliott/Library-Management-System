@@ -1,5 +1,7 @@
-from PySide6.QtWidgets import QComboBox, QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSpinBox, QVBoxLayout, QMessageBox, QTableWidget, QTableWidgetItem
-from services import books
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication, QComboBox, QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSpinBox, QVBoxLayout, QMessageBox, QTableWidget, QTableWidgetItem
+
+from services import books, open_library
 from ui.formatting import REQUIRED_MARK, to_text
 
 class BookDialog(QDialog):
@@ -35,7 +37,18 @@ class BookDialog(QDialog):
         self._publisher_field = QLineEdit()
         self._year_field = QLineEdit()
 
-        form.addRow("ISBN" + REQUIRED_MARK, self._isbn_field)
+        if self._book is None:
+            isbn_row = QHBoxLayout()
+            isbn_row.addWidget(self._isbn_field)
+
+            self._fetch_button = QPushButton("Fetch details")
+            self._fetch_button.clicked.connect(self._fetch_details)
+            isbn_row.addWidget(self._fetch_button)
+
+            form.addRow("ISBN" + REQUIRED_MARK, isbn_row)
+        else:
+            form.addRow("ISBN" + REQUIRED_MARK, self._isbn_field)
+
         form.addRow("Title" + REQUIRED_MARK, self._title_field)
         form.addRow("Genre" + REQUIRED_MARK, self._genre_box)
         form.addRow("Publication Year", self._year_field)
@@ -109,6 +122,29 @@ class BookDialog(QDialog):
             self._withdraw_button.setVisible(False)
 
         self.setLayout(layout)
+
+    def _fill_field(self, field, value):
+        if value is not None:
+            field.setText(value)
+
+    def _fetch_details(self):
+        self._status_label.setText("")
+
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+
+        try:
+            details = open_library.lookup_isbn(self._isbn_field.text())
+        except ValueError as error:
+            self._status_label.setText(str(error))
+            return
+        finally:
+            QApplication.restoreOverrideCursor()
+
+        self._fill_field(self._title_field, details["title"])
+        self._fill_field(self._publisher_field, details["publisher"])
+        self._fill_field(self._year_field, details["publication_year"])
+        self._fill_field(self._first_name_field, details["author_first_name"])
+        self._fill_field(self._last_name_field, details["author_last_name"])
 
     def _save(self):
         self._status_label.setText("")

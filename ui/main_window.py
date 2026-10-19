@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QMainWindow, QPushButton, QTa
 from services import books, loans, fines, audit
 from ui.book_dialog import BookDialog
 from ui.loan_dialog import IssueLoanDialog
-from ui.formatting import to_text
+from ui.formatting import set_up_table, to_text
 
 class MainWindow(QMainWindow):
     def __init__(self, librarian):
@@ -48,10 +48,7 @@ class MainWindow(QMainWindow):
         self._book_table = QTableWidget()
         self._book_table.setColumnCount(6)
         self._book_table.setHorizontalHeaderLabels(["Book ID", "Title", "Author", "Genre", "ISBN", "Year"])
-        self._book_table.setEditTriggers(QTableWidget.NoEditTriggers) # read only
-        self._book_table.setSelectionBehavior(QTableWidget.SelectRows) # select whole rows
-        self._book_table.setSelectionMode(QTableWidget.SingleSelection) #one row at a time
-        self._book_table.verticalHeader().setVisible(False)
+        set_up_table(self._book_table, 1)
 
         # books tab holds the controls and the table
         books_tab = QWidget()
@@ -65,14 +62,9 @@ class MainWindow(QMainWindow):
         tabs.addTab(books_tab, "Books")
         self._loan_table = QTableWidget()
         self._loan_table.setColumnCount(7)
-        self._loan_table.setHorizontalHeaderLabels(
-            ["Loan ID", "Borrower", "Title", "Copy ID", "Loan Date", "Due Date", "Days Remaining"]
-        )
+        self._loan_table.setHorizontalHeaderLabels(["Loan ID", "Borrower", "Title", "Copy ID","Loan Date", "Due Date", "Days Remaining"])
         self._loan_table.setColumnHidden(0, True)
-        self._loan_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self._loan_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self._loan_table.setSelectionMode(QTableWidget.SingleSelection)
-        self._loan_table.verticalHeader().setVisible(False)
+        set_up_table(self._loan_table, 2)
 
         loans_tab = QWidget()
         loans_layout = QVBoxLayout()
@@ -100,11 +92,8 @@ class MainWindow(QMainWindow):
 
         self._overdue_table = QTableWidget()
         self._overdue_table.setColumnCount(6)
-        self._overdue_table.setHorizontalHeaderLabels(["Borrower", "Title", "Copy ID", "Loan Date", "Due Date", "Days Overdue"] )
-        self._overdue_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self._overdue_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self._overdue_table.setSelectionMode(QTableWidget.SingleSelection)
-        self._overdue_table.verticalHeader().setVisible(False)
+        self._overdue_table.setHorizontalHeaderLabels(["Borrower", "Title", "Copy ID", "Loan Date","Due Date", "Days Overdue"])
+        set_up_table(self._overdue_table, 1)
 
         overdue_tab = QWidget()
         overdue_layout = QVBoxLayout()
@@ -114,14 +103,9 @@ class MainWindow(QMainWindow):
 
         self._fine_table = QTableWidget()
         self._fine_table.setColumnCount(5)
-        self._fine_table.setHorizontalHeaderLabels(
-            ["Fine ID", "Borrower", "Title", "Amount (PLN)", "Date Issued"]
-        )
+        self._fine_table.setHorizontalHeaderLabels(["Fine ID", "Borrower", "Title", "Amount (PLN)","Date Issued"])
         self._fine_table.setColumnHidden(0, True)
-        self._fine_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self._fine_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self._fine_table.setSelectionMode(QTableWidget.SingleSelection)
-        self._fine_table.verticalHeader().setVisible(False)
+        set_up_table(self._fine_table, 2)
 
         fines_tab = QWidget()
         fines_layout = QVBoxLayout()
@@ -139,13 +123,8 @@ class MainWindow(QMainWindow):
 
         self._audit_table = QTableWidget()
         self._audit_table.setColumnCount(5)
-        self._audit_table.setHorizontalHeaderLabels(
-            ["Time", "Staff", "Action", "Table", "Record ID"]
-        )
-        self._audit_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self._audit_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self._audit_table.setSelectionMode(QTableWidget.SingleSelection)
-        self._audit_table.verticalHeader().setVisible(False)
+        self._audit_table.setHorizontalHeaderLabels(["Time", "Staff", "Action", "Table", "Record ID"])
+        set_up_table(self._audit_table, 4)
 
         audit_tab = QWidget()
         audit_layout = QVBoxLayout()

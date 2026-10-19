@@ -1,8 +1,8 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QComboBox, QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSpinBox, QVBoxLayout, QMessageBox, QTableWidget, QTableWidgetItem
+from PySide6.QtWidgets import QApplication, QComboBox, QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSpinBox, QVBoxLayout, QMessageBox, QTableWidget, QTableWidgetItem, QWidget
 
 from services import books, open_library
-from ui.formatting import REQUIRED_MARK, to_text
+from ui.formatting import REQUIRED_MARK, set_up_table, to_text
 
 class BookDialog(QDialog):
     def __init__(self, librarian, book=None):
@@ -36,6 +36,7 @@ class BookDialog(QDialog):
         self._isbn_field = QLineEdit()
         self._publisher_field = QLineEdit()
         self._year_field = QLineEdit()
+        self._year_field.setMaximumWidth(140)
 
         if self._book is None:
             isbn_row = QHBoxLayout()
@@ -53,6 +54,11 @@ class BookDialog(QDialog):
         form.addRow("Genre" + REQUIRED_MARK, self._genre_box)
         form.addRow("Publication Year", self._year_field)
         form.addRow("Publisher", self._publisher_field)
+
+        author_gap = QWidget()
+        author_gap.setFixedHeight(12) # separates the book fields from the author fields
+        form.addRow(author_gap)
+
         form.addRow("Author first name", self._first_name_field)
         form.addRow("Author last name" + REQUIRED_MARK, self._last_name_field)
 
@@ -61,6 +67,7 @@ class BookDialog(QDialog):
             self._copies_box = QSpinBox()
             self._copies_box.setMinimum(1)
             self._copies_box.setMaximum(20)
+            self._copies_box.setMaximumWidth(80)
             form.addRow("Number of copies", self._copies_box)
 
         layout.addLayout(form)
@@ -71,10 +78,7 @@ class BookDialog(QDialog):
             self._copies_table = QTableWidget()
             self._copies_table.setColumnCount(4)
             self._copies_table.setHorizontalHeaderLabels(["Copy ID", "Purchase Date", "Condition", "Status"])
-            self._copies_table.setEditTriggers(QTableWidget.NoEditTriggers)
-            self._copies_table.setSelectionBehavior(QTableWidget.SelectRows)
-            self._copies_table.setSelectionMode(QTableWidget.SingleSelection)
-            self._copies_table.verticalHeader().setVisible(False)
+            set_up_table(self._copies_table, 3)
 
             copies_layout.addWidget(self._copies_table)
 
@@ -99,6 +103,9 @@ class BookDialog(QDialog):
             self._genre_box.addItem(genre["name"], genre["genre_id"])
 
         # shows errors raised by the buttons
+        if self._book is None:
+            layout.addStretch()
+
         self._status_label = QLabel("")
         self._status_label.setStyleSheet("color: red")
         layout.addWidget(self._status_label)

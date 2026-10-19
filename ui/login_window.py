@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QCheckBox
 from services import auth
+from ui import style
 
 class LoginWindow(QDialog):
     def __init__(self):
@@ -8,7 +9,7 @@ class LoginWindow(QDialog):
         self._librarian = None
         self._setup_ui()
 
-    def _setup_ui(self): 
+    def _setup_ui(self):
         self.setWindowTitle("Library System Login")
         self.resize(400, 300)
 
@@ -18,34 +19,40 @@ class LoginWindow(QDialog):
         layout.addWidget(title)
 
         username_label = QLabel("Username")
-        username_label.setStyleSheet("color: #333366;")
         layout.addWidget(username_label)
 
         self._username_input = QLineEdit()
+        self._username_input.setPlaceholderText("Username")
         layout.addWidget(self._username_input)
 
         password_label = QLabel("Password")
-        password_label.setStyleSheet("color: #333366;")
         layout.addWidget(password_label)
-        
+
         self._password_input = QLineEdit()
-        self._password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self._password_input.setEchoMode(
+            QLineEdit.EchoMode.Password
+        )
+        self._password_input.setPlaceholderText("Password")
+        self._password_input.returnPressed.connect(self._login)
         layout.addWidget(self._password_input)
 
         self._toggle_box = QCheckBox("Show Password")
-        self._toggle_box.toggled.connect(self._toggle_password_view)
+        self._toggle_box.toggled.connect(
+            self._toggle_password_view
+        )
         layout.addWidget(self._toggle_box)
 
         self._error_label = QLabel("")
-        self._error_label.setStyleSheet("color: #C62828")
+        self._error_label.setStyleSheet(style.ERROR_STYLE)
         layout.addWidget(self._error_label)
 
         self._login_button = QPushButton("Login")
+        self._login_button.setObjectName("primary")
         self._login_button.clicked.connect(self._login)
-        self._login_button.setStyleSheet("color: #3B82F6")
         layout.addWidget(self._login_button)
-    
+
         self.setLayout(layout)
+
 
     def _toggle_password_view(self, checked):
         if checked:

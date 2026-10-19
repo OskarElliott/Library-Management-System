@@ -3,6 +3,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QComboBox, QFormLayout, QHBoxLayout, QLineEdit, QLabel, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout
 from services import books, users, loans
 from ui.formatting import REQUIRED_MARK, to_text
+from ui import style
 
 class IssueLoanDialog(QDialog):
     def __init__(self, librarian):
@@ -40,7 +41,7 @@ class IssueLoanDialog(QDialog):
         layout.addLayout(form)
 
         self._error_label = QLabel("")
-        self._error_label.setStyleSheet("color: red")
+        self._error_label.setStyleSheet(style.ERROR_STYLE)
         layout.addWidget(self._error_label)
 
         buttons = QHBoxLayout()
@@ -105,7 +106,7 @@ class IssueLoanDialog(QDialog):
 
             if reasons:
                 self._eligibility_label.setText("\n".join(reasons))
-                self._eligibility_label.setStyleSheet("color: red")
+                self._eligibility_label.setStyleSheet(style.ERROR_STYLE)
                 self._borrower_ok = False
 
             else:

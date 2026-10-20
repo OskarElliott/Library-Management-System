@@ -5,7 +5,6 @@ from urllib.request import urlopen
 BOOKS_URL = "https://openlibrary.org/api/books"
 TIMEOUT_SECONDS = 5
 
-
 def parse_book(book):
     title = book.get("title")
 
@@ -40,7 +39,6 @@ def parse_book(book):
         "publisher": publisher,
         "publication_year": year
     }
-
 
 def lookup_isbn(isbn):
     isbn = isbn.replace(" ", "").replace("-", "").upper()

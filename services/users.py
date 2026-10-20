@@ -2,7 +2,6 @@ from db.connection import get_connection
 from models.student import Student
 from models.teacher import Teacher
 
-
 def get_borrowers():
     con = get_connection()
 
@@ -19,7 +18,6 @@ def get_borrowers():
         con.close()
 
     return rows
-
 
 def get_user(user_id):
     con = get_connection()

@@ -15,11 +15,11 @@ def login(username, password):
     finally:
         con.close()
 
-    # return the same result for an unknown username and an incorrect password to avoid revealing which usernames exist
+    # same result for unknown users and wrong passwords, so usernames cannot be guessed
     if row is None:
         return None
 
-    # the password hash is stored as text, so both values must be encoded to bytes
+    # the password hash is text, so encode both values to bytes
     if not bcrypt.checkpw(password.encode(), row["password_hash"].encode()):
         return None
 

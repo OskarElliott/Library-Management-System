@@ -10,6 +10,7 @@ class IssueLoanDialog(QDialog):
         super().__init__()
 
         self._librarian = librarian
+         # load books once so typing only filters in memory, avoiding repeated database queries
         self._all_books = books.get_all_books()
 
         self._borrower_ok = False # set before setup so signals can read it
@@ -49,6 +50,7 @@ class IssueLoanDialog(QDialog):
 
         self._cancel_button = QPushButton("Cancel")
         self._issue_button = QPushButton("Issue Loan")
+        self._issue_button.setObjectName("primary")
 
         buttons.addWidget(self._cancel_button)
         buttons.addWidget(self._issue_button)
@@ -71,7 +73,6 @@ class IssueLoanDialog(QDialog):
         for borrower in users.get_borrowers():
             if borrower["role_name"] == "teacher":
                 group = "teacher"
-
             else: 
                 group = borrower["homeroom"]
 
@@ -81,18 +82,20 @@ class IssueLoanDialog(QDialog):
     def _filter_books(self, text):
         term = text.strip().lower()
 
-        self._title_list.clear() # reset ui list to prevent old results from showing
+        self._title_list.clear() 
 
         for book in self._all_books:
             title = to_text(book["title"])
             author = f'{to_text(book["first_name"])} {to_text(book["last_name"])}'.strip()
 
-            if term in title.lower() or term in author.lower(): # match if the search term is in the title or author name
+            # lowercase both sides to make the search case-insensitive
+            if term in title.lower() or term in author.lower():
                 item = QListWidgetItem(f"{title} by {author}")
-                item.setData(Qt.UserRole, book["book_id"]) # stores the database id of the book in the item for later retrieval
+                item.setData(Qt.ItemDataRole.UserRole, book["book_id"]) # hidden book id behind the visible text
                 self._title_list.addItem(item)
 
-        self._load_copies() # refresh dependent ui elements based on the new list of books 
+        # refresh copies so a copy from a filtered-out title cannot remain selectable
+        self._load_copies()
 
     def _check_borrower(self):
         user_id = self._borrower_box.currentData()
@@ -123,7 +126,7 @@ class IssueLoanDialog(QDialog):
         selected_items = self._title_list.selectedItems()
 
         if selected_items:
-            book_id = selected_items[0].data(Qt.UserRole)
+            book_id = selected_items[0].data(Qt.ItemDataRole.UserRole)
             copies = books.get_available_copies(book_id)
 
             if not copies:

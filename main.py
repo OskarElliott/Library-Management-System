@@ -2,12 +2,12 @@ from PySide6.QtWidgets import QApplication
 from ui.login_window import LoginWindow
 from ui.main_window import MainWindow
 from ui import style
-import sys
 
 app = QApplication([])
 app.setStyle("Fusion")
 app.setStyleSheet(style.STYLESHEET)
 
+# the loop brings back the login window after log out
 while True:
     login = LoginWindow()
 
@@ -23,6 +23,4 @@ while True:
     if not window.logged_out:
         break
     
-sys.exit()
-
 

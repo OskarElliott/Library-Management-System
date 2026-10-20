@@ -1,4 +1,5 @@
 class User:
+    # none because the base class has no borrowing limit of its own
     MAX_LOANS = None
     MAX_LOAN_DAYS = None
 

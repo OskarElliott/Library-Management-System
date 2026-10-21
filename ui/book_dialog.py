@@ -68,7 +68,7 @@ class BookDialog(QDialog):
             self._copies_box = QSpinBox()
             self._copies_box.setMinimum(1)
             self._copies_box.setMaximum(20)
-            self._copies_box.setMaximumWidth(80)
+            self._copies_box.setMaximumWidth(100)
             form.addRow("Number of copies", self._copies_box)
 
         layout.addLayout(form)

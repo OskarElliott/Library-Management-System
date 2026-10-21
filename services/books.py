@@ -1,5 +1,4 @@
 from db.connection import get_connection
-from datetime import date
 
 ACTION_ADD_BOOK = "add_book"
 ACTION_EDIT_BOOK = "edit_book"
@@ -9,93 +8,103 @@ ACTION_DISCARD_COPY = "discard_copy"
 
 def get_all_books():
     con = get_connection()
-    cur = con.cursor()
 
-    cur.execute("""SELECT Books.book_id, Books.title, Books.isbn, Authors.first_name, Authors.last_name, Genres.name AS genre_name, Books.publisher, Books.publication_year
-                FROM Books LEFT JOIN BookAuthors ON Books.book_id = BookAuthors.book_id
-                LEFT JOIN Authors ON BookAuthors.author_id = Authors.author_id 
-                LEFT JOIN Genres ON Books.genre_id = Genres.genre_id WHERE Books.is_active = 1
-                ORDER BY Books.title""")
+    try:
+        cur = con.cursor()
+        cur.execute("""SELECT Books.book_id, Books.title, Books.isbn, Authors.first_name, Authors.last_name, Genres.name AS genre_name, Books.publication_year
+                    FROM Books LEFT JOIN BookAuthors ON Books.book_id = BookAuthors.book_id
+                    LEFT JOIN Authors ON BookAuthors.author_id = Authors.author_id
+                    LEFT JOIN Genres ON Books.genre_id = Genres.genre_id WHERE Books.is_active = 1
+                    ORDER BY Books.title""")
+        rows = cur.fetchall()
 
-    books = cur.fetchall()
-    con.close()
+    finally:
+        con.close()
 
-    return books
+    return rows
 
 def get_book(book_id):
     con = get_connection()
-    cur = con.cursor()
 
-    cur.execute("""SELECT Books.book_id, Books.isbn, Books.title, Books.publication_year, Books.publisher, Books.genre_id,
-                Genres.name AS genre_name, Authors.first_name, Authors.last_name
-            FROM Books LEFT JOIN Genres ON Books.genre_id = Genres.genre_id
-                LEFT JOIN BookAuthors ON Books.book_id = BookAuthors.book_id
-                LEFT JOIN Authors ON BookAuthors.author_id = Authors.author_id
-                WHERE Books.book_id = ? AND Books.is_active = 1""", (book_id,))
+    try:
+        cur = con.cursor()
+        cur.execute("""SELECT Books.book_id, Books.isbn, Books.title, Books.publication_year, Books.publisher, Books.genre_id,
+                    Authors.first_name, Authors.last_name
+                    FROM Books LEFT JOIN BookAuthors ON Books.book_id = BookAuthors.book_id
+                    LEFT JOIN Authors ON BookAuthors.author_id = Authors.author_id
+                    WHERE Books.book_id = ? AND Books.is_active = 1""", (book_id,))
+        row = cur.fetchone()
 
-    row = cur.fetchone()
-    con.close()
+    finally:
+        con.close()
 
-    if row is None:
-        return None
-    
     return row
 
 def get_copies(book_id):
     con = get_connection()
-    cur = con.cursor()
 
-    cur.execute("SELECT copy_id, purchase_date, condition, status FROM BookCopies where book_id = ? ORDER BY copy_id", (book_id,))
-    copies = cur.fetchall()
+    try:
+        cur = con.cursor()
+        cur.execute("SELECT copy_id, purchase_date, condition, status FROM BookCopies WHERE book_id = ? ORDER BY copy_id", (book_id,))
+        rows = cur.fetchall()
 
-    con.close()
+    finally:
+        con.close()
 
-    return copies 
+    return rows
 
 def get_all_genres():
     con = get_connection()
-    cur = con.cursor()
 
-    cur.execute("SELECT genre_id, name FROM Genres ORDER BY name")
+    try:
+        cur = con.cursor()
+        cur.execute("SELECT genre_id, name FROM Genres ORDER BY name")
+        rows = cur.fetchall()
 
-    genres = cur.fetchall()
-    con.close()
-    return genres
+    finally:
+        con.close()
+
+    return rows
 
 def _check_and_clean_book_fields(isbn, title, genre_id, publication_year, publisher, author_first_name, author_last_name):
     isbn = isbn.strip()
     title = title.strip()
+    # converts blank optional fields to None
     publisher = publisher.strip() or None
     author_first_name = author_first_name.strip() or None
     author_last_name = author_last_name.strip()
 
     if isbn == "":
-        raise ValueError("ISBN is required")
-    
+        raise ValueError("ISBN is required.")
+
     if title == "":
-        raise ValueError("Title is required")
-    
+        raise ValueError("Title is required.")
+
     if genre_id is None:
-        raise ValueError("Genre is required")
+        raise ValueError("Genre is required.")
 
     if author_last_name == "":
-        raise ValueError("Author last name is required")
+        raise ValueError("Author last name is required.")
+
+    if publication_year is not None:
+        publication_year = str(publication_year).strip()
 
     if publication_year == "":
         publication_year = None
-    elif publication_year is not None:
+
+    if publication_year is not None:
         try:
             publication_year = int(publication_year)
         except ValueError:
-            raise ValueError("Publication year must be a number")
+            raise ValueError("Publication year must be a number.")
 
         if publication_year < 1000 or publication_year > 2100:
-            raise ValueError("Publication year is out of range")
-        
-    return(isbn, title, genre_id, publication_year, publisher, author_first_name, author_last_name)
+            raise ValueError("Publication year is out of range.")
+
+    return isbn, title, genre_id, publication_year, publisher, author_first_name, author_last_name
 
 def _get_or_create_author(cur, first_name, last_name): 
-    # is matches null values correctly
+    # match null first names correctly
     cur.execute("SELECT author_id FROM Authors WHERE first_name IS ? AND last_name = ?", (first_name, last_name))
 
     row = cur.fetchone()
@@ -146,24 +155,25 @@ def edit_book(book_id, isbn, title, genre_id, publication_year, publisher, autho
     con = get_connection()
 
     try:
+        cur = con.cursor()
+
+        # exclude the current book when checking for duplicate isbns
+        cur.execute("SELECT book_id FROM Books WHERE isbn = ? AND book_id != ?", (isbn, book_id))
+
+        if cur.fetchone() is not None:
+            raise ValueError("A book with this ISBN already exists.")
+
         with con:
-            cur = con.cursor()
-
-            # exclude the current book when checking for duplicate isbns
-            cur.execute("SELECT book_id FROM Books WHERE isbn = ? AND book_id != ?", (isbn, book_id))
-
-            if cur.fetchone() is not None:
-                raise ValueError("A book with this ISBN already exists.")
-
-            cur.execute("""UPDATE Books 
-                        SET isbn = ?, title = ?, publication_year = ?, publisher = ?, genre_id = ? 
+            cur.execute("""UPDATE Books
+                        SET isbn = ?, title = ?, publication_year = ?, publisher = ?, genre_id = ?
                         WHERE book_id = ?""", (isbn, title, publication_year, publisher, genre_id, book_id))
 
             if cur.rowcount == 0:
-                raise ValueError("Book not found")
+                raise ValueError("Book not found.")
 
             author_id = _get_or_create_author(cur, author_first_name, author_last_name)
 
+            # replace the book's author link without renaming a shared author record
             cur.execute("DELETE FROM BookAuthors WHERE book_id = ?", (book_id,))
 
             cur.execute("INSERT INTO BookAuthors(book_id, author_id) VALUES (?, ?)", (book_id, author_id))
@@ -185,26 +195,26 @@ def get_available_copies(book_id):
 
     return copies
 
-def add_copy(book_id, librarian_id):
-    purchase_date = date.today().isoformat() # default purchase date
-
+def add_copy(book_id, librarian_id, today):
     con = get_connection()
 
     try:
+        cur = con.cursor()
+
+        cur.execute("SELECT 1 FROM Books WHERE book_id = ? AND is_active = 1", (book_id,))
+
+        if cur.fetchone() is None:
+            raise ValueError("Book not found.")
+
         with con:
-            cur = con.cursor()
-
-            cur.execute("SELECT 1 FROM Books WHERE book_id = ? AND is_active = 1", (book_id,))
-            if cur.fetchone() is None:
-                raise ValueError("Book not found")
-
-            cur.execute("INSERT INTO BookCopies(book_id, purchase_date) VALUES (?,?)",(book_id, purchase_date))
+            cur.execute("INSERT INTO BookCopies(book_id, purchase_date) VALUES (?, ?)", (book_id, today))
 
             copy_id = cur.lastrowid
 
-            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?,?,?,?)", (librarian_id, ACTION_ADD_COPY, "BookCopies", copy_id))
+            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", (librarian_id, ACTION_ADD_COPY, "BookCopies", copy_id))
 
-            return copy_id
+        return copy_id
+
     finally:
         con.close()
 
@@ -212,24 +222,24 @@ def withdraw_book(book_id, librarian_id):
     con = get_connection()
 
     try:
+        cur = con.cursor()
+
+        cur.execute("SELECT COUNT(*) FROM BookCopies WHERE book_id = ? AND status = 'loaned'", (book_id,))
+        loaned_count = cur.fetchone()[0]
+
+        if loaned_count > 0:
+            raise ValueError(f"Copies on loan: {loaned_count}. Return them before withdrawing.")
+
         with con:
-            cur = con.cursor()
-
-            cur.execute("SELECT COUNT(*) FROM BookCopies WHERE book_id = ? AND status = 'loaned'", (book_id,))
-
-            loaned_count = cur.fetchone()[0]
-
-            if loaned_count > 0:
-                raise ValueError(f"Copies on loan: {loaned_count}. Return them before withdrawing.")
-
             cur.execute("UPDATE Books SET is_active = 0 WHERE book_id = ?", (book_id,))
 
             if cur.rowcount == 0:
                 raise ValueError("Book not found.")
 
+            # retain withdrawn books and copies for loan history and auditing
             cur.execute("UPDATE BookCopies SET status = 'discarded' WHERE book_id = ?", (book_id,))
 
-            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?,?,?,?)", (librarian_id, ACTION_WITHDRAW_BOOK, "Books", book_id))
+            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", (librarian_id, ACTION_WITHDRAW_BOOK, "Books", book_id))
 
     finally:
         con.close()
@@ -238,25 +248,24 @@ def discard_copy(copy_id, librarian_id):
     con = get_connection()
 
     try:
+        cur = con.cursor()
+
+        cur.execute("SELECT status FROM BookCopies WHERE copy_id = ?", (copy_id,))
+        row = cur.fetchone()
+
+        if row is None:
+            raise ValueError("Copy not found.")
+
+        if row["status"] == "loaned":
+            raise ValueError("Copy is on loan, it must be returned before discarding.")
+
+        if row["status"] == "discarded":
+            raise ValueError("Copy is already discarded.")
+
         with con:
-            cur = con.cursor()
-
-            cur.execute("SELECT status FROM BookCopies WHERE copy_id = ?", (copy_id,))
-
-            row = cur.fetchone()
-
-            if row is None:
-                raise ValueError("Copy not found")
-
-            if row["status"] == "loaned":
-                raise ValueError("Copy is on loan, it must be returned before discarding.")
-
-            if row["status"] == "discarded":
-                raise ValueError("Copy is already discarded.")
-
             cur.execute("UPDATE BookCopies SET status = 'discarded' WHERE copy_id = ?", (copy_id,))
 
-            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?,?,?,?)", (librarian_id, ACTION_DISCARD_COPY, "BookCopies", copy_id))
+            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", (librarian_id, ACTION_DISCARD_COPY, "BookCopies", copy_id))
 
     finally:
         con.close()

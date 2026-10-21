@@ -1,13 +1,13 @@
 from datetime import date
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QMainWindow, QPushButton, QTabWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QMessageBox
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QMainWindow, QMessageBox, QPushButton, QTabWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 from services import books, loans, fines, audit
 from ui.book_dialog import BookDialog
 from ui.loan_dialog import IssueLoanDialog
-from ui.formatting import set_up_table, to_text
+from ui.formatting import get_selected_row, set_up_table, to_text
 
 class MainWindow(QMainWindow):
     def __init__(self, librarian):
-        super().__init__() # allow access to methods & properties of QMainWindow
+        super().__init__() 
 
         self._librarian = librarian
         self.logged_out = False
@@ -15,7 +15,7 @@ class MainWindow(QMainWindow):
         self._load_books()
         self._load_tables()
 
-    def _setup_ui(self):     
+    def _setup_ui(self):
         self.setWindowTitle("Library Management System")
         self.resize(1280, 720)
 
@@ -34,28 +34,26 @@ class MainWindow(QMainWindow):
         top_bar.addWidget(self._log_out_button)
         layout.addLayout(top_bar)
 
-            
-        controls = QHBoxLayout()
+        book_buttons = QHBoxLayout()
         self._add_book_button = QPushButton("Add Book")
         self._add_book_button.setObjectName("primary")
+        self._add_book_button.clicked.connect(self._add_book)
+        book_buttons.addWidget(self._add_book_button)
 
         self._edit_book_button = QPushButton("Edit Book")
-        self._add_book_button.clicked.connect(self._add_book)
         self._edit_book_button.clicked.connect(self._edit_book)
-        controls.addWidget(self._add_book_button)
-        controls.addWidget(self._edit_book_button)
-        controls.addStretch()
+        book_buttons.addWidget(self._edit_book_button)
 
-        # books table
+        book_buttons.addStretch()
+
         self._book_table = QTableWidget()
         self._book_table.setColumnCount(6)
         self._book_table.setHorizontalHeaderLabels(["Book ID", "Title", "Author", "Genre", "ISBN", "Year"])
         set_up_table(self._book_table, 1)
 
-        # books tab holds the controls and the table
         books_tab = QWidget()
         books_layout = QVBoxLayout()
-        books_layout.addLayout(controls)
+        books_layout.addLayout(book_buttons)
         books_layout.addWidget(self._book_table)
         books_tab.setLayout(books_layout)
 
@@ -65,6 +63,7 @@ class MainWindow(QMainWindow):
         self._loan_table = QTableWidget()
         self._loan_table.setColumnCount(7)
         self._loan_table.setHorizontalHeaderLabels(["Loan ID", "Borrower", "Title", "Copy ID","Loan Date", "Due Date", "Days Remaining"])
+        # keep the loan ID hidden but available for loan actions
         self._loan_table.setColumnHidden(0, True)
         set_up_table(self._loan_table, 2)
 
@@ -136,6 +135,7 @@ class MainWindow(QMainWindow):
         audit_layout.addWidget(self._audit_table)
         audit_tab.setLayout(audit_layout)
         self._audit_tab_index = tabs.addTab(audit_tab, "Audit Log")
+        # refresh the audit log when opened to show the latest actions
         tabs.currentChanged.connect(self._tab_changed)
 
         layout.addWidget(tabs)
@@ -149,13 +149,13 @@ class MainWindow(QMainWindow):
     def _log_out(self):
         self.logged_out = True
         self.close()
-        
+
     def _load_books(self):
         # the whole table is refilled every time
-        books_rows = books.get_all_books()
-        self._book_table.setRowCount(len(books_rows))
+        book_rows = books.get_all_books()
+        self._book_table.setRowCount(len(book_rows))
 
-        for row_index, book in enumerate(books_rows):
+        for row_index, book in enumerate(book_rows):
             author = f'{to_text(book["first_name"])} {to_text(book["last_name"])}'.strip()
  
             self._book_table.setItem(row_index, 0, QTableWidgetItem(to_text(book["book_id"])))
@@ -243,32 +243,24 @@ class MainWindow(QMainWindow):
         self._load_overdue()
         self._load_fines()
 
-    def _selected_loan_row(self):
-        selected_rows = self._loan_table.selectionModel().selectedRows()
-
-        if not selected_rows:
-            self._status_label.setText("Select a loan first.")
-            return None
-
-        return selected_rows[0].row()
-
     def _add_book(self):
+        self._status_label.setText("")
+
         dialog = BookDialog(self._librarian)
 
         # exec() blocks until the dialog closes and returns true only if it was accepted
         if dialog.exec():
             self._load_books()
-            
-    def _edit_book(self):
-        selected_rows = self._book_table.selectionModel().selectedRows()
 
-        if not selected_rows:
+    def _edit_book(self):
+        self._status_label.setText("")
+
+        row_index = get_selected_row(self._book_table)
+
+        if row_index is None:
             self._status_label.setText("Select a book to edit.")
             return
 
-        self._status_label.setText("")
-
-        row_index = selected_rows[0].row()
         book_id = int(self._book_table.item(row_index, 0).text())
 
         dialog = BookDialog(self._librarian, books.get_book(book_id))
@@ -288,27 +280,31 @@ class MainWindow(QMainWindow):
     def _return_loan(self):
         self._status_label.setText("")
 
-        row_index = self._selected_loan_row()
+        row_index = get_selected_row(self._loan_table)
 
         if row_index is None:
+            self._status_label.setText("Select a loan first.")
             return
 
         loan_id = int(self._loan_table.item(row_index, 0).text())
         borrower = self._loan_table.item(row_index, 1).text()
         title = self._loan_table.item(row_index, 2).text()
 
-        answer = QMessageBox.question(self, "Return Loan", f"Return '{title}' borrowed by {borrower}?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        # default set to no to prevent accidental returns
+        answer = QMessageBox.question(
+            self,
+            "Return Loan",
+            f"Return '{title}' borrowed by {borrower}?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
 
         if answer != QMessageBox.StandardButton.Yes:
             return
 
-        try:
-            today = date.today().isoformat()
-            days_late, fine_amount = loans.return_loan(
-                loan_id, self._librarian.get_user_id(), today
-            )
+        today = date.today().isoformat()
 
+        try:
+            days_late, fine_amount = loans.return_loan(loan_id, self._librarian.get_user_id(), today)
         except ValueError as error:
             self._status_label.setText(str(error))
             return
@@ -324,25 +320,30 @@ class MainWindow(QMainWindow):
     def _mark_lost(self):
         self._status_label.setText("")
 
-        row_index = self._selected_loan_row()
+        row_index = get_selected_row(self._loan_table)
 
         if row_index is None:
+            self._status_label.setText("Select a loan first.")
             return
 
         loan_id = int(self._loan_table.item(row_index, 0).text())
         borrower = self._loan_table.item(row_index, 1).text()
         title = self._loan_table.item(row_index, 2).text()
 
-        answer = QMessageBox.question(self, "Mark Lost", f"Mark '{title}' borrowed by {borrower} as lost?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        answer = QMessageBox.question(
+            self,
+            "Mark Lost",
+            f"Mark '{title}' borrowed by {borrower} as lost?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
 
         if answer != QMessageBox.StandardButton.Yes:
             return
 
-        try:
-            today = date.today().isoformat()
-            fine_amount = loans.mark_lost(loan_id, self._librarian.get_user_id(), today)
+        today = date.today().isoformat()
 
+        try:
+            fine_amount = loans.mark_lost(loan_id, self._librarian.get_user_id(), today)
         except ValueError as error:
             self._status_label.setText(str(error))
             return
@@ -353,18 +354,19 @@ class MainWindow(QMainWindow):
     def _record_payment(self):
         self._status_label.setText("")
 
-        selected_rows = self._fine_table.selectionModel().selectedRows()
+        row_index = get_selected_row(self._fine_table)
 
-        if not selected_rows:
+        if row_index is None:
             self._status_label.setText("Select a fine first.")
             return
 
-        row_index = selected_rows[0].row()
         fine_id = int(self._fine_table.item(row_index, 0).text())
         borrower = self._fine_table.item(row_index, 1).text()
         amount = self._fine_table.item(row_index, 3).text()
 
-        answer = QMessageBox.question(self, "Record Payment",
+        answer = QMessageBox.question(
+            self,
+            "Record Payment",
             f"Record payment of {amount} PLN from {borrower}?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No)
@@ -372,11 +374,10 @@ class MainWindow(QMainWindow):
         if answer != QMessageBox.StandardButton.Yes:
             return
 
+        today = date.today().isoformat()
+
         try:
-            today = date.today().isoformat()
-            fines.record_payment(
-                fine_id, self._librarian.get_user_id(), today
-            )
+            fines.record_payment(fine_id, self._librarian.get_user_id(), today)
         except ValueError as error:
             self._status_label.setText(str(error))
             return

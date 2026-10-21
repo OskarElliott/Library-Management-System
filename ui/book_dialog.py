@@ -1,12 +1,13 @@
+from datetime import date
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QComboBox, QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSpinBox, QVBoxLayout, QMessageBox, QTableWidget, QTableWidgetItem, QWidget
+from PySide6.QtWidgets import QApplication, QComboBox, QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 from services import books, open_library
-from ui.formatting import REQUIRED_MARK, set_up_table, to_text
+from ui.formatting import REQUIRED_MARK, get_selected_row, set_up_table, to_text
 from ui import style
 
 class BookDialog(QDialog):
     def __init__(self, librarian, book=None):
-        super().__init__() # allows access to methods and properties of QDialog
+        super().__init__() 
 
         self._librarian = librarian
         self._book = book  # none means that a new book is being added
@@ -97,20 +98,20 @@ class BookDialog(QDialog):
             self._add_copy_button.clicked.connect(self._add_copy)
             self._discard_copy_button.clicked.connect(self._discard_copy)
 
-        # the genre list comes from the db, so the same genre cannot be spelt in different ways
-        # each item shows the name and carries the genre_id with it
+        # load genre names with their database IDs
 
         self._genre_box.addItem("-- Select Genre --", None)
         for genre in books.get_all_genres():
             self._genre_box.addItem(genre["name"], genre["genre_id"])
 
-        # shows errors raised by the buttons
+        # keep the buttons at the bottom when no copies table is shown
         if self._book is None:
             layout.addStretch()
 
-        self._status_label = QLabel("")
-        self._status_label.setStyleSheet(style.ERROR_STYLE)
-        layout.addWidget(self._status_label)
+        # shows errors raised by the buttons
+        self._error_label = QLabel("")
+        self._error_label.setStyleSheet(style.ERROR_STYLE)
+        layout.addWidget(self._error_label)
 
         buttons = QHBoxLayout()
         self._withdraw_button = QPushButton("Withdraw Book")
@@ -141,14 +142,14 @@ class BookDialog(QDialog):
             field.setText(value)
 
     def _fetch_details(self):
-        self._status_label.setText("")
-
+        self._error_label.setText("")
+        # restore the cursor even if the lookup fails
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
 
         try:
             details = open_library.lookup_isbn(self._isbn_field.text())
         except ValueError as error:
-            self._status_label.setText(str(error))
+            self._error_label.setText(str(error))
             return
         finally:
             QApplication.restoreOverrideCursor()
@@ -160,7 +161,7 @@ class BookDialog(QDialog):
         self._fill_field(self._last_name_field, details["author_last_name"])
 
     def _save(self):
-        self._status_label.setText("")
+        self._error_label.setText("")
 
         isbn = self._isbn_field.text()
         title = self._title_field.text()
@@ -174,21 +175,27 @@ class BookDialog(QDialog):
             if self._book is None:
                 book_id = books.add_book(isbn, title, genre_id, publication_year, publisher, author_first_name, author_last_name, self._librarian.get_user_id())
 
-                for i in range (self._copies_box.value()):
-                    books.add_copy(book_id, self._librarian.get_user_id())
+                today = date.today().isoformat()
 
-            else: 
+                for i in range(self._copies_box.value()):
+                    books.add_copy(book_id, self._librarian.get_user_id(), today)
+
+            else:
                 books.edit_book(self._book["book_id"], isbn, title, genre_id, publication_year, publisher, author_first_name, author_last_name, self._librarian.get_user_id())
 
         except ValueError as error:
-            self._status_label.setText(str(error))
+            self._error_label.setText(str(error))
             return
 
         self.accept()
 
     def _withdraw(self):
-        answer = QMessageBox.question(self, "Withdraw Book", "Are you sure you want to withdraw this book?\nAll copies will be discarded.",
-                                              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        answer = QMessageBox.question(
+            self,
+            "Withdraw Book",
+            "Are you sure you want to withdraw this book?\nAll copies will be discarded.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
 
         if answer != QMessageBox.StandardButton.Yes:
             return
@@ -197,7 +204,7 @@ class BookDialog(QDialog):
             books.withdraw_book(self._book["book_id"], self._librarian.get_user_id())
 
         except ValueError as error:
-            self._status_label.setText(str(error))
+            self._error_label.setText(str(error))
             return
 
         self.accept()
@@ -210,8 +217,7 @@ class BookDialog(QDialog):
         self._publisher_field.setText(to_text(self._book["publisher"]))
         self._year_field.setText(to_text(self._book["publication_year"]))
 
-        # findData finds the item carrying the books genre_id and
-        # a book with no genre lands on the placeholder which carries none
+        # select the book's existing genre
 
         self._genre_box.setCurrentIndex(self._genre_box.findData(self._book["genre_id"]))
 
@@ -221,7 +227,7 @@ class BookDialog(QDialog):
         self._copies_table.setRowCount(len(copy_rows))
 
         for row_index, copy in enumerate(copy_rows):
-            self._copies_table.setItem(row_index, 0, QTableWidgetItem(str(copy["copy_id"])))
+            self._copies_table.setItem(row_index, 0, QTableWidgetItem(to_text(copy["copy_id"])))
             self._copies_table.setItem(row_index, 1, QTableWidgetItem(to_text(copy["purchase_date"])))
             self._copies_table.setItem(row_index, 2, QTableWidgetItem(to_text(copy["condition"])))
             self._copies_table.setItem(row_index, 3, QTableWidgetItem(to_text(copy["status"])))
@@ -229,39 +235,42 @@ class BookDialog(QDialog):
         self._copies_table.resizeColumnsToContents()
 
     def _add_copy(self):
-        self._status_label.setText("")
+        self._error_label.setText("")
 
         try:
-            books.add_copy(self._book["book_id"], self._librarian.get_user_id())
+            books.add_copy(self._book["book_id"], self._librarian.get_user_id(), date.today().isoformat())
 
         except ValueError as error:
-            self._status_label.setText(str(error))
+            self._error_label.setText(str(error))
             return
 
         self._load_copies()
 
     def _discard_copy(self):
-        self._status_label.setText("")
+        self._error_label.setText("")
 
-        selected_rows = self._copies_table.selectionModel().selectedRows()
-        if not selected_rows:
-            self._status_label.setText("Select a copy to discard.")
+        row_index = get_selected_row(self._copies_table)
+
+        if row_index is None:
+            self._error_label.setText("Select a copy to discard.")
             return
 
-        copy_id = int(self._copies_table.item(selected_rows[0].row(), 0).text())
+        copy_id = int(self._copies_table.item(row_index, 0).text())
 
-        answer = QMessageBox.question(self, "Discard Copy", f"Discard copy {copy_id}?\nThis cannot be undone.",
-                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                                      QMessageBox.StandardButton.No) 
+        answer = QMessageBox.question(
+            self,
+            "Discard Copy",
+            f"Discard copy {copy_id}?\nThis cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
 
         if answer != QMessageBox.StandardButton.Yes:
             return
 
         try:
             books.discard_copy(copy_id, self._librarian.get_user_id())
-
         except ValueError as error:
-            self._status_label.setText(str(error))
+            self._error_label.setText(str(error))
             return
 
         self._load_copies()

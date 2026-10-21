@@ -37,12 +37,14 @@ class MainWindow(QMainWindow):
             
         controls = QHBoxLayout()
         self._add_book_button = QPushButton("Add Book")
+        self._add_book_button.setObjectName("primary")
+
         self._edit_book_button = QPushButton("Edit Book")
         self._add_book_button.clicked.connect(self._add_book)
         self._edit_book_button.clicked.connect(self._edit_book)
-        controls.addStretch()
         controls.addWidget(self._add_book_button)
         controls.addWidget(self._edit_book_button)
+        controls.addStretch()
 
         # books table
         self._book_table = QTableWidget()
@@ -71,6 +73,7 @@ class MainWindow(QMainWindow):
 
         loan_buttons = QHBoxLayout()
         self._issue_loan_button = QPushButton("Issue Loan")
+        self._issue_loan_button.setObjectName("primary")
         self._issue_loan_button.clicked.connect(self._issue_loan)
         loan_buttons.addWidget(self._issue_loan_button)
 
@@ -79,6 +82,7 @@ class MainWindow(QMainWindow):
         loan_buttons.addWidget(self._return_button)
 
         self._mark_lost_button = QPushButton("Mark Lost")
+        self._mark_lost_button.setObjectName("danger")
         self._mark_lost_button.clicked.connect(self._mark_lost)
         loan_buttons.addWidget(self._mark_lost_button)
 
@@ -112,6 +116,7 @@ class MainWindow(QMainWindow):
 
         fine_buttons = QHBoxLayout()
         self._record_payment_button = QPushButton("Record Payment")
+        self._record_payment_button.setObjectName("primary")
         self._record_payment_button.clicked.connect(self._record_payment)
         fine_buttons.addWidget(self._record_payment_button)
         fine_buttons.addStretch()
@@ -359,13 +364,10 @@ class MainWindow(QMainWindow):
         borrower = self._fine_table.item(row_index, 1).text()
         amount = self._fine_table.item(row_index, 3).text()
 
-        answer = QMessageBox.question(
-            self,
-            "Record Payment",
+        answer = QMessageBox.question(self, "Record Payment",
             f"Record payment of {amount} PLN from {borrower}?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
-        )
+            QMessageBox.StandardButton.No)
 
         if answer != QMessageBox.StandardButton.Yes:
             return
@@ -380,6 +382,4 @@ class MainWindow(QMainWindow):
             return
 
         self._load_tables()
-        self._status_label.setText(
-            f"Payment of {amount} PLN recorded for {borrower}."
-        )
+        self._status_label.setText(f"Payment of {amount} PLN recorded for {borrower}.")

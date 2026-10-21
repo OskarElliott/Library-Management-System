@@ -1,12 +1,12 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QComboBox, QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSpinBox, QVBoxLayout, QMessageBox, QTableWidget, QTableWidgetItem, QWidget
-
 from services import books, open_library
 from ui.formatting import REQUIRED_MARK, set_up_table, to_text
+from ui import style
 
 class BookDialog(QDialog):
     def __init__(self, librarian, book=None):
-        super().__init__() # allows access to methods and proper titles of qdialog
+        super().__init__() # allows access to methods and properties of QDialog
 
         self._librarian = librarian
         self._book = book  # none means that a new book is being added
@@ -83,7 +83,9 @@ class BookDialog(QDialog):
             copies_layout.addWidget(self._copies_table)
 
             self._add_copy_button = QPushButton("Add Copy")
+
             self._discard_copy_button = QPushButton("Discard Copy")
+            self._discard_copy_button.setObjectName("danger")
 
             copy_buttons = QHBoxLayout()
             copy_buttons.addWidget(self._add_copy_button)
@@ -107,13 +109,17 @@ class BookDialog(QDialog):
             layout.addStretch()
 
         self._status_label = QLabel("")
-        self._status_label.setStyleSheet("color: red")
+        self._status_label.setStyleSheet(style.ERROR_STYLE)
         layout.addWidget(self._status_label)
 
         buttons = QHBoxLayout()
         self._withdraw_button = QPushButton("Withdraw Book")
+        self._withdraw_button.setObjectName("danger")
+
         self._cancel_button = QPushButton("Cancel")
+
         self._save_button = QPushButton("Save")
+        self._save_button.setObjectName("primary")
         buttons.addWidget(self._withdraw_button)
         buttons.addStretch()
         buttons.addWidget(self._cancel_button)
@@ -182,7 +188,7 @@ class BookDialog(QDialog):
 
     def _withdraw(self):
         answer = QMessageBox.question(self, "Withdraw Book", "Are you sure you want to withdraw this book?\nAll copies will be discarded.",
-                                              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No,)
+                                              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
 
         if answer != QMessageBox.StandardButton.Yes:
             return

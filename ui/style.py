@@ -104,6 +104,7 @@ QTableWidget {
     background-color: #FFFFFF;
     border: 1px solid #D0D5DD;
     border-radius: 6px;
+    outline: 0;
 }
 
 QTableWidget::item {
@@ -127,10 +128,6 @@ QHeaderView::section {
     padding: 6px 8px;
     font-weight: 600;
     color: #374151;
-}
-    
-QTableWidget {
-    outline: 0;
 }
 
 """

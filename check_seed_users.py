@@ -80,7 +80,7 @@ def check_logins():
     elapsed = time.perf_counter() - start
 
     check("F1.1", "active librarian logs in and gets a Librarian back", isinstance(librarian, Librarian))
-    check("F1.7", f"login took {elapsed:.2f}s, under 2 seconds", elapsed < 2)
+    check("F1.7", f"login took {elapsed:.2f}s, under 1 second", elapsed < 1)
     check("F1.5", "inactive librarian with the correct password is refused",
           auth.login("inactive_librarian", TEST_PASSWORD) is None)
     check("F1.6", "teacher with a valid hash is refused",

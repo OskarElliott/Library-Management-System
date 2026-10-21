@@ -29,17 +29,13 @@ class LoginWindow(QDialog):
         layout.addWidget(password_label)
 
         self._password_input = QLineEdit()
-        self._password_input.setEchoMode(
-            QLineEdit.EchoMode.Password
-        )
+        self._password_input.setEchoMode(QLineEdit.EchoMode.Password)
         self._password_input.setPlaceholderText("Password")
         self._password_input.returnPressed.connect(self._login)
         layout.addWidget(self._password_input)
 
         self._toggle_box = QCheckBox("Show Password")
-        self._toggle_box.toggled.connect(
-            self._toggle_password_view
-        )
+        self._toggle_box.toggled.connect(self._toggle_password_view)
         layout.addWidget(self._toggle_box)
 
         self._error_label = QLabel("")
@@ -53,26 +49,25 @@ class LoginWindow(QDialog):
 
         self.setLayout(layout)
 
-
     def _toggle_password_view(self, checked):
         if checked:
             self._password_input.setEchoMode(QLineEdit.EchoMode.Normal)
         else:
             self._password_input.setEchoMode(QLineEdit.EchoMode.Password)
 
-
     def _login(self):
         username = self._username_input.text().strip()
+        # trim accidental whitespace from usernames but preserve passwords exactly as entered
         password = self._password_input.text()
 
         if username == "" or password == "":
-            self._error_label.setText("<b>Please enter a username and password</b>")
+            self._error_label.setText("Please enter a username and password.")
             return
-
+        
         librarian = auth.login(username, password)
 
         if librarian is None:
-            self._error_label.setText("<b>Invalid username or password</b>")
+            self._error_label.setText("Invalid username or password.")
             return
 
         self._librarian = librarian

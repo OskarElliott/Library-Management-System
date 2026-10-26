@@ -58,7 +58,8 @@ def add_fine(cur, loan_id, amount, today, librarian_id):
     cur.execute("INSERT INTO Fines(loan_id, amount, issued_date, status) VALUES (?, ?, ?, 'unpaid')", (loan_id, amount, today))
     fine_id = cur.lastrowid
 
-    cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", (librarian_id, ACTION_ADD_FINE, "Fines", fine_id))
+    cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", 
+                (librarian_id, ACTION_ADD_FINE, "Fines", fine_id))
 
 def get_unpaid_fines():
     con = get_connection()
@@ -95,7 +96,8 @@ def record_payment(fine_id, librarian_id, today):
         with con:
             cur.execute("UPDATE Fines SET status = 'paid', paid_date = ? WHERE fine_id = ?", (today, fine_id))
 
-            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", (librarian_id, ACTION_RECORD_PAYMENT, "Fines", fine_id))
+            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", 
+                        (librarian_id, ACTION_RECORD_PAYMENT, "Fines", fine_id))
             
     finally:
         con.close()

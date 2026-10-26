@@ -142,7 +142,8 @@ def add_book(isbn, title, genre_id, publication_year, publisher, author_first_na
 
             cur.execute("INSERT INTO BookAuthors(book_id, author_id) VALUES(?, ?)", (book_id, author_id))
 
-            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES(?,?,?,?)", (librarian_id,ACTION_ADD_BOOK,"Books", book_id,))
+            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES(?,?,?,?)", 
+                        (librarian_id,ACTION_ADD_BOOK,"Books", book_id,))
 
             return book_id
 
@@ -178,7 +179,8 @@ def edit_book(book_id, isbn, title, genre_id, publication_year, publisher, autho
 
             cur.execute("INSERT INTO BookAuthors(book_id, author_id) VALUES (?, ?)", (book_id, author_id))
 
-            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", (librarian_id, ACTION_EDIT_BOOK, "Books", book_id))
+            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", 
+                        (librarian_id, ACTION_EDIT_BOOK, "Books", book_id))
 
     finally:
         con.close()
@@ -211,7 +213,8 @@ def add_copy(book_id, librarian_id, today):
 
             copy_id = cur.lastrowid
 
-            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", (librarian_id, ACTION_ADD_COPY, "BookCopies", copy_id))
+            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", 
+                        (librarian_id, ACTION_ADD_COPY, "BookCopies", copy_id))
 
         return copy_id
 
@@ -239,7 +242,8 @@ def withdraw_book(book_id, librarian_id):
             # retain withdrawn books and copies for loan history and auditing
             cur.execute("UPDATE BookCopies SET status = 'discarded' WHERE book_id = ?", (book_id,))
 
-            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", (librarian_id, ACTION_WITHDRAW_BOOK, "Books", book_id))
+            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", 
+                        (librarian_id, ACTION_WITHDRAW_BOOK, "Books", book_id))
 
     finally:
         con.close()
@@ -265,7 +269,8 @@ def discard_copy(copy_id, librarian_id):
         with con:
             cur.execute("UPDATE BookCopies SET status = 'discarded' WHERE copy_id = ?", (copy_id,))
 
-            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", (librarian_id, ACTION_DISCARD_COPY, "BookCopies", copy_id))
+            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", 
+                        (librarian_id, ACTION_DISCARD_COPY, "BookCopies", copy_id))
 
     finally:
         con.close()

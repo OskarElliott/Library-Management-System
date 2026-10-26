@@ -40,6 +40,7 @@ def get_user(user_id):
     if row is None:
         raise ValueError("User not found.")
 
+    # return the subclass so the role's limits come from its class
     if row["role_name"] == "student":
         return Student.from_row(row)
 

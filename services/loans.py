@@ -11,8 +11,10 @@ def get_active_loans(today):
     try:
         cur = con.cursor()
 
-        cur.execute("""SELECT Loans.loan_id, Users.first_name, Users.last_name, Books.title, Loans.copy_id, Loans.checkout_date, Loans.due_date, julianday(Loans.due_date) - julianday(?) AS days_remaining
-                FROM Loans JOIN BookCopies ON Loans.copy_id = BookCopies.copy_id JOIN Books ON BookCopies.book_id = Books.book_id
+        cur.execute("""SELECT Loans.loan_id, Users.first_name, Users.last_name, Books.title, Loans.copy_id, 
+                Loans.checkout_date, Loans.due_date, julianday(Loans.due_date) - julianday(?) AS days_remaining
+                FROM Loans JOIN BookCopies ON Loans.copy_id = BookCopies.copy_id JOIN Books 
+                ON BookCopies.book_id = Books.book_id
                 JOIN Users ON Loans.user_id = Users.user_id
                 WHERE Loans.status = 'active' ORDER BY Loans.due_date ASC""", (today,))
 
@@ -28,8 +30,10 @@ def get_overdue_loans(today):
         cur = con.cursor()
 
         # strict < so a loan due today isn't overdue
-        cur.execute("""SELECT Loans.loan_id, Users.first_name, Users.last_name, Books.title, Loans.copy_id, Loans.checkout_date, Loans.due_date, julianday(?) - julianday(Loans.due_date) AS days_overdue
-                    FROM Loans JOIN BookCopies ON Loans.copy_id = BookCopies.copy_id JOIN Books ON BookCopies.book_id = Books.book_id
+        cur.execute("""SELECT Loans.loan_id, Users.first_name, Users.last_name, Books.title, Loans.copy_id, 
+                    Loans.checkout_date, Loans.due_date, julianday(?) - julianday(Loans.due_date) AS days_overdue
+                    FROM Loans JOIN BookCopies ON Loans.copy_id = BookCopies.copy_id JOIN Books 
+                    ON BookCopies.book_id = Books.book_id
                     JOIN Users ON Loans.user_id = Users.user_id
                     WHERE Loans.status = 'active' AND Loans.due_date < ? ORDER BY days_overdue DESC""", (today, today))
 
@@ -65,8 +69,9 @@ def check_eligibility(user_id):
         reasons.append(f"Borrower has outstanding fines of {row['outstanding_fines']:.2f} PLN.")
 
     return reasons
+
 def issue_loan(copy_id, user_id, librarian_id, today):
-    # the dialog checks eligibility when a borrower is selected, but the service checks again when issuing the loan so other callers cannot bypass the rules
+    # checked again here so callers can't skip the dialog's check
     reasons = check_eligibility(user_id)
 
     if reasons:
@@ -98,7 +103,8 @@ def issue_loan(copy_id, user_id, librarian_id, today):
 
             cur.execute("UPDATE BookCopies SET status = 'loaned' WHERE copy_id = ?", (copy_id,))
 
-            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", (librarian_id, ACTION_ISSUE_LOAN, "Loans", loan_id))
+            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", 
+                        (librarian_id, ACTION_ISSUE_LOAN, "Loans", loan_id))
 
         return loan_id, due_date.isoformat()
 
@@ -142,7 +148,8 @@ def return_loan(loan_id, librarian_id, today):
             # prevents resetting status if the copy was discarded while on loan
             cur.execute("UPDATE BookCopies SET status = 'available' WHERE copy_id = ? AND status != 'discarded'", (row["copy_id"],))
 
-            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", (librarian_id, ACTION_RETURN_LOAN, "Loans", loan_id))
+            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", 
+                        (librarian_id, ACTION_RETURN_LOAN, "Loans", loan_id))
 
             if fine_amount > 0:
                 fines.add_fine(cur, loan_id, fine_amount, today, librarian_id)
@@ -178,7 +185,8 @@ def mark_lost(loan_id, librarian_id, today):
 
             cur.execute("UPDATE BookCopies SET status = 'lost' WHERE copy_id = ?", (row["copy_id"],))
 
-            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", (librarian_id, ACTION_MARK_LOST, "Loans", loan_id))
+            cur.execute("INSERT INTO AuditLog(user_id, action, table_name, record_id) VALUES (?, ?, ?, ?)", 
+                        (librarian_id, ACTION_MARK_LOST, "Loans", loan_id))
 
             fines.add_fine(cur, loan_id, fine_amount, today, librarian_id)
 

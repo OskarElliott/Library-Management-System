@@ -8,8 +8,10 @@ def login(username, password):
 
     try:
         cur = con.cursor()
-        cur.execute("""SELECT Users.user_id, Users.first_name, Users.last_name, Users.email, Users.is_active, Users.username, Users.password_hash
-                    FROM Users JOIN Roles ON Users.role_id = Roles.role_id WHERE username = ? AND Users.is_active = 1 AND Roles.role_name = 'librarian'""", (username,))
+        cur.execute("""SELECT Users.user_id, Users.first_name, Users.last_name, Users.email, 
+                    Users.is_active, Users.username, Users.password_hash
+                    FROM Users JOIN Roles ON Users.role_id = Roles.role_id 
+                    WHERE username = ? AND Users.is_active = 1 AND Roles.role_name = 'librarian'""", (username,))
         row = cur.fetchone()
 
     finally:

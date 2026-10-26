@@ -24,6 +24,7 @@ def calculate_fine(chargeable_days, rule):
     if days_to_charge <= 0:
         return 0.0
 
+    # fill tier 1 first, any remaining days go to tier 2
     tier_1_days = min(days_to_charge, rule["tier_1_days"])
     tier_2_days = days_to_charge - tier_1_days
 
@@ -39,6 +40,7 @@ def calculate_fine(chargeable_days, rule):
 def get_closed_days(cur):
     cur.execute("SELECT day_date FROM ClosedDays")
 
+    # return the subclass so the role's limits come from its class
     closed_days = set()
 
     for row in cur.fetchall():

@@ -27,7 +27,7 @@ def get_overdue_loans(today):
     try:
         cur = con.cursor()
 
-        # due date has not passed yet on the due date itself
+        # strict < so a loan due today isn't overdue
         cur.execute("""SELECT Loans.loan_id, Users.first_name, Users.last_name, Books.title, Loans.copy_id, Loans.checkout_date, Loans.due_date, julianday(?) - julianday(Loans.due_date) AS days_overdue
                     FROM Loans JOIN BookCopies ON Loans.copy_id = BookCopies.copy_id JOIN Books ON BookCopies.book_id = Books.book_id
                     JOIN Users ON Loans.user_id = Users.user_id

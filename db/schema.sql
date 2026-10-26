@@ -136,6 +136,7 @@ CREATE TABLE Notifications (
 
 CREATE VIEW BorrowingEligibility AS 
 SELECT Users.user_id,
+    -- distinct because joining fines can repeat a loan row
     COUNT (DISTINCT CASE WHEN Loans.status = 'active' THEN Loans.loan_id END) AS active_loans,
     COALESCE(SUM (CASE WHEN fines.status = 'unpaid' THEN fines.amount END), 0) AS outstanding_fines 
 FROM Users
